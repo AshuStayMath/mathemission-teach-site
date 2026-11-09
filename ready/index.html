@@ -65,7 +65,7 @@ a.card:hover,button.card:hover{border-color:var(--cyan);box-shadow:0 0 16px #22d
 details.theory{border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:10px 0;background:var(--panel)}
 details.theory>summary{font-size:14px}
 figure.pg{position:relative;margin:10px 0 0;min-height:120px;border-radius:6px;overflow:hidden;background:#fff}
-figure.pg img{display:block;width:100%;height:auto;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;pointer-events:none}
+figure.pg img,figure.pg canvas{display:block;width:100%;height:auto;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;pointer-events:none}
 figure.pg .wm{position:absolute;inset:0;pointer-events:none;display:flex;flex-wrap:wrap;align-content:space-around;justify-content:space-around;overflow:hidden;opacity:.13;color:#0b1d52;font-size:13px;font-weight:700;transform:rotate(-24deg) scale(1.3)}
 figure.pg .wm span{padding:22px 18px;white-space:nowrap}
 figure.pg figcaption{position:absolute;right:6px;bottom:4px;font-size:11px;color:#556}
@@ -90,7 +90,8 @@ summary{cursor:pointer;color:var(--cyan);font-weight:600;font-size:13.5px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--cyan);padding:9px 16px;border-radius:10px;font-size:14px;z-index:20;box-shadow:0 0 18px #22d3ee44}
 .spin{padding:40px 0;text-align:center;color:var(--muted)}
 footer{margin-top:40px;text-align:center;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:14px}
-@media print{.top,.actions,footer{display:none}figure.pg{display:none}}
+.printmark{display:none}.dev{border:1px solid #f5c54255;border-radius:14px;padding:12px 14px;margin:12px 0;background:#f5c5420d}.dev h3{color:var(--gold);font-size:16px;margin-bottom:4px}.dev li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);list-style:none}.dev ul{padding:0;margin:8px 0 0}
+@media print{.top,.actions,footer,.dev{display:none}figure.pg{display:none}.printmark{display:block;position:fixed;left:0;right:0;bottom:0;text-align:center;font-size:10px;color:#555;border-top:1px solid #ccc;padding-top:3px;background:#fff}body{padding-bottom:22px}}
 </style>
 </head>
 <body>
@@ -101,6 +102,7 @@ footer{margin-top:40px;text-align:center;color:var(--muted);font-size:13px;borde
 <main class="wrap" id="app"><div class="spin">Loading…</div></main>
 <footer class="wrap">AK · Stay Mathactive · <a href="https://mathemission.in">mathemission.in</a></footer>
 <div id="toast" class="toast hidden"></div>
+<div id="printmark" class="printmark"></div>
 
 <script>
 (() => {
@@ -111,13 +113,16 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);   // default storage ke
 const app = document.getElementById('app');
 const PACE = 'Each lecture is planned for 2 hours and comes split as <b>A</b> and <b>B</b> (about 60 min each). Split it differently or speed up to suit your class’s pace and time.';
 
-const S = { user: null, plan: 'free', admin: false, chapters: [], lectures: [], cache: {} };
+const S = { user: null, plan: 'free', admin: false, chapters: [], lectures: [], cache: {}, device: { ok: true } };
+const TODAY = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const mathy = s => (/\$/.test(s || '') ? s : esc(s));          // titles may carry LaTeX
 const toast = msg => { const t = document.getElementById('toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add('hidden'), 2200); };
 const typeset = async el => { for (let i = 0; i < 50 && !(window.MathJax && MathJax.typesetPromise); i++) await new Promise(r => setTimeout(r, 100)); try { await MathJax.typesetPromise([el]); } catch (e) { console.warn(e); } };
-const canRead = l => S.admin || (l.status === 'published' && (l.is_free || S.plan === 'pro'));
+const canRead = l => S.admin || (l.status === 'published' && (l.is_free || (S.plan === 'pro' && S.device.ok)));
+const deviceLabel = () => { const u = navigator.userAgent; const b = /Edg\//.test(u) ? 'Edge' : /OPR\//.test(u) ? 'Opera' : /SamsungBrowser/.test(u) ? 'Samsung Internet' : /Firefox\//.test(u) ? 'Firefox' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : 'Browser';
+  const o = /iPhone/.test(u) ? 'iPhone' : /iPad/.test(u) ? 'iPad' : /Android/.test(u) ? 'Android' : /Windows/.test(u) ? 'Windows' : /Mac OS X/.test(u) ? 'Mac' : /Linux/.test(u) ? 'Linux' : 'device'; return `${b} on ${o}`; };
 const isPyq = l => !l.theory_min && l.n === Math.max(...S.lectures.filter(x => x.chapter_slug === l.chapter_slug).map(x => x.n));
 const pageFile = (slug, n) => `${slug}/${slug[0]}-${String(n).padStart(2, '0')}.jpg`;
 
@@ -139,6 +144,8 @@ async function boot() {
   const pl = document.getElementById('plan');
   pl.textContent = S.admin ? 'Admin' : (S.plan === 'pro' ? 'Teach Pro' : 'Free plan');
   pl.className = 'plan' + (S.plan === 'pro' || S.admin ? ' pro' : '');
+  document.getElementById('printmark').textContent = `Prepared for ${S.user.email} · ${TODAY} · Mathemission Teach · not for distribution`;
+  if (S.plan === 'pro' && !S.admin) await checkDevice();
 
   const [c, l] = await Promise.all([
     sb.from('ready_chapters').select('*').order('syllabus_order'),
@@ -149,6 +156,28 @@ async function boot() {
   if (!S.admin && S.lectures.some(x => x.status === 'draft')) S.admin = true;   // only admins can see drafts (RLS)
   window.addEventListener('hashchange', route);
   route();
+}
+
+async function checkDevice() {
+  const { data, error } = await sb.rpc('teach_register_device', { p_label: deviceLabel() });
+  if (error) { S.device = { ok: true }; return; }          // device limit not set up on the server yet
+  S.device = data || { ok: true };
+  if (!S.device.ok && S.device.reason === 'signed_out') { await sb.auth.signOut(); location.reload(); }
+}
+function deviceBox() {
+  if (S.device.ok || S.device.reason !== 'limit') return '';
+  const when = t => new Date(t).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  const rows = (S.device.devices || []).map(d => `<li><span>${esc(d.label || 'Device')}<br><small class="dim">last used ${when(d.last_seen)}</small></span><button class="btn ghost" data-drop="${esc(d.id)}">Sign out that device</button></li>`).join('');
+  return `<div class="dev"><h3>Teach Pro is open on ${S.device.max} other devices</h3>
+    <p class="small dim">One Teach Pro account works on up to ${S.device.max} devices. Sign out one of them to use Pro lectures here. Lecture 1 of every chapter still opens on this device.</p><ul>${rows}</ul></div>`;
+}
+function wireDevices(root) {
+  root.querySelectorAll('[data-drop]').forEach(b => b.onclick = async () => {
+    b.disabled = true; b.textContent = 'Signing out…';
+    const { data, error } = await sb.rpc('teach_drop_device', { p_session: b.dataset.drop });
+    if (error || !data) { toast('Couldn’t sign that device out. Try again.'); b.disabled = false; b.textContent = 'Sign out that device'; return; }
+    S.cache = {}; await checkDevice(); toast(S.device.ok ? 'Done. Teach Pro is now open on this device.' : 'Signed out.'); route();
+  });
 }
 
 function route() {
@@ -171,10 +200,11 @@ function home() {
   }).join('');
   app.innerHTML = `<h1><small>Mathemission Teach</small>Mathemission Ready Lectures</h1>
     <p class="lead">Ready-to-teach JEE Advanced lectures, for your own preparation: theory pages, the E-set for each lecture with hints and the answer, and a PYQ lecture for each chapter.</p>
-    <div class="pace">${PACE}</div>
+    ${deviceBox()}<div class="pace">${PACE}</div>
     <div class="grid two">${rows || '<p class="dim">No chapters published yet.</p>'}</div>
     <p class="dim small" style="margin-top:14px">Ready Lectures are JEE Advanced only. Want JEE Main practice as well? Add questions from the Practice Vault in <a href="/">Question Sets</a>.</p>
     ${S.plan !== 'pro' && !S.admin ? '<p class="dim small">Free plan: Lecture 1 of every chapter. Teach Pro opens every lecture.</p>' : ''}`;
+  wireDevices(app);
 }
 
 function chapter(ch) {
@@ -189,8 +219,8 @@ function chapter(ch) {
   }).join('');
   app.innerHTML = `<div class="crumbs"><a href="#/">Ready Lectures</a> ›</div>
     <h1><small>JEE Advanced</small>${esc(ch.name)}${ch.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : ''}</h1>
-    <div class="pace">${PACE}</div><div class="grid">${rows}</div>`;
-  typeset(app);
+    ${deviceBox()}<div class="pace">${PACE}</div><div class="grid">${rows}</div>`;
+  wireDevices(app); typeset(app);
 }
 
 async function load(l) {
@@ -219,8 +249,7 @@ function itemCard(e) {
 
 function pages(ch, list, label) {
   if (!list || !list.length) return '';
-  const wm = Array.from({ length: 18 }, () => `<span>${esc(S.user.email)}</span>`).join('');
-  const figs = list.map(n => `<figure class="pg" data-src="${pageFile(ch.slug, n)}"><div class="ph">Page ${n}</div><div class="wm">${wm}</div><figcaption>p. ${n}</figcaption></figure>`).join('');
+  const figs = list.map(n => `<figure class="pg" data-src="${pageFile(ch.slug, n)}"><div class="ph">Page ${n}</div><figcaption>p. ${n}</figcaption></figure>`).join('');
   return `<details class="theory"${label.open ? ' open' : ''}><summary>${label.text}</summary>${figs}</details>`;
 }
 
@@ -229,10 +258,26 @@ async function loadPage(fig) {
   const { data, error } = await sb.storage.from('ready-pages').download(fig.dataset.src);
   const ph = fig.querySelector('.ph');
   if (error || !data) { if (ph) ph.textContent = 'This page isn’t available yet.'; return; }
-  const img = new Image(); img.alt = ''; img.draggable = false;
-  img.src = URL.createObjectURL(data);
-  img.onload = () => ph && ph.remove();
-  fig.prepend(img);
+  // draw the page with the teacher's email and the date baked into the picture (no image file or URL is left in the page)
+  let bmp;
+  try { bmp = await createImageBitmap(data); }
+  catch { const u = URL.createObjectURL(data); bmp = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = u; }).finally(() => URL.revokeObjectURL(u)); }
+  const W = bmp.width, H = bmp.height, c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.drawImage(bmp, 0, 0);
+  if (bmp.close) bmp.close();
+  const mark = `${S.user.email} · ${TODAY}`, fs = Math.max(14, Math.round(W / 42));
+  g.save(); g.font = `700 ${fs}px system-ui, sans-serif`; g.fillStyle = 'rgba(11,29,82,.12)';
+  g.translate(W / 2, H / 2); g.rotate(-24 * Math.PI / 180);
+  const step = g.measureText(mark).width + fs * 3, R = Math.hypot(W, H);
+  for (let y = -R, row = 0; y < R; y += fs * 5, row++) for (let x = -R + (row % 2) * step / 2; x < R; x += step) g.fillText(mark, x, y);
+  g.restore();
+  g.font = `600 ${Math.round(fs * .7)}px system-ui, sans-serif`; g.fillStyle = 'rgba(11,29,82,.45)';
+  g.fillText(`Mathemission Teach · prepared for ${S.user.email}`, fs * .6, H - fs * .6);
+  c.oncontextmenu = e => e.preventDefault();
+  fig.prepend(c);
+  if (ph) ph.remove();
 }
 function watchPages(root) {
   root.querySelectorAll('figure.pg').forEach(f => {
@@ -253,6 +298,9 @@ function planText(ch, l, d, A, B, ta, tb) {
 async function lecture(ch, l) {
   const head = `<div class="crumbs"><a href="#/">Ready Lectures</a> › <a href="#/${ch.slug}">${esc(ch.name)}</a> ›</div>
     <h2><small>${esc(ch.name)} · Lecture ${l.n}</small>${mathy(l.title)}${l.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : ''}</h2>`;
+  if (!canRead(l) && S.plan === 'pro' && !S.device.ok) {
+    app.innerHTML = head + deviceBox(); wireDevices(app); return typeset(app);
+  }
   if (!canRead(l)) {
     app.innerHTML = head + `<div class="box"><h3>In this lecture</h3><ul class="small">${(l.topics || []).map(t => `<li>${mathy(t)}</li>`).join('')}</ul></div>
       <div class="lock"><h3>Part of Teach Pro</h3><p>The Free plan includes Lecture 1 of every chapter. Teach Pro opens every Ready Lecture, with theory pages, E-sets, hints and answers.</p><a class="btn" href="/">See Teach Pro</a></div>`;
