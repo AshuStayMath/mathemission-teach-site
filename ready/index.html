@@ -92,6 +92,18 @@ summary{cursor:pointer;color:var(--cyan);font-weight:600;font-size:13.5px}
 footer{margin-top:40px;text-align:center;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:14px}
 .printmark{display:none}.dev{border:1px solid #f5c54255;border-radius:14px;padding:12px 14px;margin:12px 0;background:#f5c5420d}.dev h3{color:var(--gold);font-size:16px;margin-bottom:4px}.dev li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);list-style:none}.dev ul{padding:0;margin:8px 0 0}
 @media print{.top,.actions,footer,.dev{display:none}figure.pg{display:none}.printmark{display:block;position:fixed;left:0;right:0;bottom:0;text-align:center;font-size:10px;color:#555;border-top:1px solid #ccc;padding-top:3px;background:#fff}body{padding-bottom:22px}}
+
+/* mature look (9 Nov 2026) */
+:root{--panel:#0d1630;--panel2:#121d3d;--line:#1d2a52}
+body{background:linear-gradient(180deg,#0a1230 0,#060b1f 340px)!important}
+.btn{box-shadow:none;border-radius:10px}.btn:not(.ghost){background:#2f6fe4}
+.card,.box,.q,details.theory,.lock,.dev{border-radius:12px}
+a.card:hover,button.card:hover{border-color:#3a5aa8;box-shadow:none}
+.fbox{box-shadow:none;border-color:#2c3f78}
+.toast{box-shadow:0 10px 30px #0008;border-color:#2c3f78}
+.lock{background:var(--panel);border-color:var(--line)}.lock h3{color:#c9d6f5}
+.logo,.brand .logo{box-shadow:none}
+h1,h2{letter-spacing:-.015em}
 </style>
 </head>
 <body>
@@ -203,7 +215,7 @@ function home() {
     ${deviceBox()}<div class="pace">${PACE}</div>
     <div class="grid two">${rows || '<p class="dim">No chapters published yet.</p>'}</div>
     <p class="dim small" style="margin-top:14px">Ready Lectures are JEE Advanced only. Want JEE Main practice as well? Add questions from the Practice Vault in <a href="/">Question Sets</a>.</p>
-    ${S.plan !== 'pro' && !S.admin ? '<p class="dim small">Free plan: Lecture 1 of every chapter. The other lectures come with Teach Pro, coming soon.</p>' : ''}`;
+    ${S.plan !== 'pro' && !S.admin ? '<p class="dim small">Free plan: Lecture 1 and the PYQ lecture of every chapter. The other lectures come with Teach Pro, coming soon.</p>' : ''}`;
   wireDevices(app);
 }
 
@@ -315,7 +327,7 @@ async function lecture(ch, l) {
   }
   if (!canRead(l)) {
     app.innerHTML = head + `<div class="box"><h3>In this lecture</h3><ul class="small">${(l.topics || []).map(t => `<li>${mathy(t)}</li>`).join('')}</ul></div>
-      <div class="lock"><h3>Coming soon with Teach Pro</h3><p>The Free plan includes Lecture 1 of every chapter. The other Ready Lectures, with theory pages, E-sets, hints and answers, open with Teach Pro when it launches.</p><a class="btn" href="/">Back to Teach</a></div>`;;
+      <div class="lock"><h3>Coming soon with Teach Pro</h3><p>The Free plan includes Lecture 1 and the PYQ lecture of every chapter. The other Ready Lectures, with theory pages, E-sets, hints and answers, open with Teach Pro when it launches.</p><a class="btn" href="/">Back to Teach</a></div>`;;
     return typeset(app);
   }
   app.innerHTML = head + '<div class="spin">Loading lecture…</div>';
