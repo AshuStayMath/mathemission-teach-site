@@ -118,7 +118,7 @@ const mathy = s => (/\$/.test(s || '') ? s : esc(s));          // titles may car
 const toast = msg => { const t = document.getElementById('toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add('hidden'), 2200); };
 const typeset = async el => { for (let i = 0; i < 50 && !(window.MathJax && MathJax.typesetPromise); i++) await new Promise(r => setTimeout(r, 100)); try { await MathJax.typesetPromise([el]); } catch (e) { console.warn(e); } };
 const canRead = l => S.admin || (l.status === 'published' && (l.is_free || S.plan === 'pro'));
-const isPyq = l => !l.total_min && !l.theory_min;
+const isPyq = l => !l.theory_min && l.n === Math.max(...S.lectures.filter(x => x.chapter_slug === l.chapter_slug).map(x => x.n));
 const pageFile = (slug, n) => `${slug}/${slug[0]}-${String(n).padStart(2, '0')}.jpg`;
 
 async function boot() {
