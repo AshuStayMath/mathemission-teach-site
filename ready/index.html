@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#060b1f">
 <meta name="robots" content="noindex">
-<title>AK's Ready Lectures · Mathemission Teach</title>
+<title>Ready Lectures · Mathemission Teach</title>
 <link rel="icon" href="/favicon-64.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <script>
@@ -95,7 +95,7 @@ footer{margin-top:40px;text-align:center;color:var(--muted);font-size:13px;borde
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="/"><span class="logo">M</span><span>Mathemission Teach<small>AK's Ready Lectures</small></span></a>
+  <a class="brand" href="/"><span class="logo">M</span><span>Mathemission Teach<small>Ready Lectures</small></span></a>
   <span id="plan" class="plan hidden"></span>
 </header>
 <main class="wrap" id="app"><div class="spin">Loading…</div></main>
@@ -124,8 +124,8 @@ const pageFile = (slug, n) => `${slug}/${slug[0]}-${String(n).padStart(2, '0')}.
 async function boot() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) {
-    app.innerHTML = `<h1><small>Mathemission Teach</small>AK's Ready Lectures</h1>
-      <p class="lead">Ready-made JEE Advanced lectures from AK's Lecturing Notes: theory pages, E-questions with hints and answers, and a PYQ lecture for each chapter.</p>
+    app.innerHTML = `<h1><small>Mathemission Teach</small>Mathemission Ready Lectures</h1>
+      <p class="lead">Ready-to-teach JEE Advanced lectures: theory pages, E-questions with hints and answers, and a PYQ lecture for each chapter.</p>
       <div class="lock"><h3>Sign in first</h3><p>Open Mathemission Teach, sign in, then come back here.</p><a class="btn" href="/">Open Teach</a></div>`;
     return;
   }
@@ -169,8 +169,8 @@ function home() {
     return `<a class="card" href="#/${c.slug}"><h3>${esc(c.name)}${c.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : ''}</h3>
       <div class="meta">${nl} lectures + PYQ lecture · JEE Advanced</div></a>`;
   }).join('');
-  app.innerHTML = `<h1><small>Mathemission Teach</small>AK's Ready Lectures</h1>
-    <p class="lead">Ready-made JEE Advanced lectures from AK's Lecturing Notes, for your own preparation: AK's theory pages, the E-set for each lecture with hints and the answer, and a PYQ lecture for each chapter.</p>
+  app.innerHTML = `<h1><small>Mathemission Teach</small>Mathemission Ready Lectures</h1>
+    <p class="lead">Ready-to-teach JEE Advanced lectures, for your own preparation: theory pages, the E-set for each lecture with hints and the answer, and a PYQ lecture for each chapter.</p>
     <div class="pace">${PACE}</div>
     <div class="grid two">${rows || '<p class="dim">No chapters published yet.</p>'}</div>
     <p class="dim small" style="margin-top:14px">Ready Lectures are JEE Advanced only. Want JEE Main practice as well? Add questions from the Practice Vault in <a href="/">Question Sets</a>.</p>
@@ -244,7 +244,7 @@ function watchPages(root) {
 
 function planText(ch, l, d, A, B, ta, tb) {
   const line = e => `  - ${e.label.split('·').pop().trim()} ${e.title.replace(/\$/g, '')} (${e.minutes || '?'} min)`;
-  return [`${ch.name} · Lecture ${l.n}: ${l.title}`, `JEE Advanced · AK's Ready Lectures · 2 hours`, '',
+  return [`${ch.name} · Lecture ${l.n}: ${l.title}`, `JEE Advanced · Mathemission Ready Lectures · 2 hours`, '',
     `${l.n}A (about ${ta} min)`, `  - Theory: ${(l.topics || []).join('; ')} (${l.theory_min} min)`, ...A.map(line), '',
     `${l.n}B (about ${tb} min)`, ...(B.length ? B.map(line) : ['  - (carry over / revision)']), '',
     'Split it differently or speed up to suit your class’s pace and time.'].join('\n');
@@ -255,7 +255,7 @@ async function lecture(ch, l) {
     <h2><small>${esc(ch.name)} · Lecture ${l.n}</small>${mathy(l.title)}${l.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : ''}</h2>`;
   if (!canRead(l)) {
     app.innerHTML = head + `<div class="box"><h3>In this lecture</h3><ul class="small">${(l.topics || []).map(t => `<li>${mathy(t)}</li>`).join('')}</ul></div>
-      <div class="lock"><h3>Part of Teach Pro</h3><p>The Free plan includes Lecture 1 of every chapter. Teach Pro opens every Ready Lecture, with AK's theory pages, E-sets, hints and answers.</p><a class="btn" href="/">See Teach Pro</a></div>`;
+      <div class="lock"><h3>Part of Teach Pro</h3><p>The Free plan includes Lecture 1 of every chapter. Teach Pro opens every Ready Lecture, with theory pages, E-sets, hints and answers.</p><a class="btn" href="/">See Teach Pro</a></div>`;
     return typeset(app);
   }
   app.innerHTML = head + '<div class="spin">Loading lecture…</div>';
@@ -286,11 +286,11 @@ async function lecture(ch, l) {
     <div class="box"><h3>Summary sheet · formulas</h3><ol class="small">${(l.formulas || []).map(t => `<li>${t}</li>`).join('') || '<li>—</li>'}</ol></div>
     <div class="pace">${PACE}</div>
     <div class="part"><h3>${l.n}A <small>· about ${ta} min</small></h3>
-      ${pages(ch, l.theory_pages, { open: true, text: `Theory · AK's notes · ${(l.theory_pages || []).length} pages · about ${l.theory_min} min` })}
+      ${pages(ch, l.theory_pages, { open: true, text: `Theory · lecture notes · ${(l.theory_pages || []).length} pages · about ${l.theory_min} min` })}
       ${A.map(itemCard).join('')}
     </div>
     <div class="part"><h3>${l.n}B <small>· about ${tb} min</small></h3>${B.map(itemCard).join('') || '<p class="dim">Use this part to finish 1A at your pace, or for revision.</p>'}</div>
-    ${pages(ch, l.all_pages, { open: false, text: `All of this lecture's pages in AK's notes (${(l.all_pages || []).length})` })}`;
+    ${pages(ch, l.all_pages, { open: false, text: `All pages of this lecture (${(l.all_pages || []).length})` })}`;
   document.getElementById('use').onclick = async () => {
     const txt = planText(ch, l, d, A, B, ta, tb);
     try { await navigator.clipboard.writeText(txt); toast('Lecture plan copied. Paste it into Lecture Notes or your planner.'); }
