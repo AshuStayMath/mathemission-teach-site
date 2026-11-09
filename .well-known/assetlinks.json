@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "in.mathemission.teach",
+      "sha256_cert_fingerprints": [
+        "1A:D0:01:F7:DC:14:BD:27:B8:B5:42:1E:D3:BC:0B:6A:D5:B3:CE:3C:1D:29:D8:47:75:88:3A:0C:AF:DA:C3:CC",
+        "6C:50:07:53:6F:0D:04:AC:E3:B2:2F:88:BB:49:A4:41:6E:7E:36:DA:5D:FB:C1:D7:23:F4:C7:0B:86:CA:CA:42"
+      ]
+    }
+  }
+]
