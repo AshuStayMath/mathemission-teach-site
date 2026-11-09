@@ -287,6 +287,18 @@ function watchPages(root) {
   });
 }
 
+async function showSolution(dd) {
+  const box = dd.querySelector('.ddb');
+  const { data, error } = await sb.from('solutions').select('key_idea,hints,full_html,alt_html,wrong_options,focus_note,trap_alert,note_html').eq('question_id', dd.dataset.q).maybeSingle();
+  if (error || !data) { box.innerHTML = '<div class="dim small">The worked solution for this question is being written.</div>'; return; }
+  const blk = (label, html, cls = 'hint') => html ? `<div class="${cls}"><span>${label}</span>${html}</div>` : '';
+  const h = data.hints || [], w = data.wrong_options || {};
+  const wrong = Object.keys(w).length ? `<div class="hint"><span>Why the other options fail</span>${Object.keys(w).sort().map(k => `<div><b>(${esc(k)})</b> ${w[k]}</div>`).join('')}</div>` : '';
+  box.innerHTML = blk('Key idea', data.key_idea, 'ans') + blk('Hint 1', h[0]) + blk('Hint 2', h[1]) + blk('Full solution', data.full_html) +
+    blk('The elegant way', data.alt_html) + wrong + blk('Where it usually slips', data.focus_note, 'note') + blk('Trap alert', data.trap_alert, 'note') + blk('Note from AK', data.note_html, 'note');
+  typeset(box);
+}
+
 function planText(ch, l, d, A, B, ta, tb) {
   const line = e => `  - ${e.label.split('·').pop().trim()} ${e.title.replace(/\$/g, '')} (${e.minutes || '?'} min)`;
   return [`${ch.name} · Lecture ${l.n}: ${l.title}`, `JEE Advanced · Mathemission Ready Lectures · 2 hours`, '',
@@ -311,11 +323,13 @@ async function lecture(ch, l) {
   try { d = await load(l); } catch (e) { app.innerHTML = head + `<div class="lock"><h3>Couldn’t load this lecture</h3><p>${esc(e.message)}</p></div>`; return; }
 
   if (isPyq(l)) {
-    const list = d.pyqs.map(p => `<article class="q"><header><span class="lab">JEE Advanced ${esc(p.tag)}</span></header><div class="stem">${p.stem_html}</div></article>`).join('');
-    app.innerHTML = head + `<div class="meta dim">${d.pyqs.length} JEE Advanced past questions · ${d.items.length ? d.items.length + ' E-questions · ' : ''}full solutions in Deep Dive</div>
-      <div class="pace">Use this lecture to close the chapter: go through the past questions in class, then point students to the full step-by-step Deep Dive solution for each one.</div>
+    const list = d.pyqs.map(p => `<article class="q"><header><span class="lab">JEE Advanced ${esc(p.tag)}</span></header><div class="stem">${p.stem_html}</div>
+      ${p.question_id ? `<details class="ha dd" data-q="${esc(p.question_id)}"><summary>Deep Dive solution</summary><div class="ddb"><div class="dim small">Loading…</div></div></details>` : ''}</article>`).join('');
+    app.innerHTML = head + `<div class="meta dim">${d.pyqs.length} JEE Advanced past questions · ${d.items.length ? d.items.length + ' E-questions · ' : ''}Deep Dive solution under each question</div>
+      <div class="pace">Use this lecture to close the chapter: go through the past questions in class. Open “Deep Dive solution” under a question for the key idea, hints, the full solution and the elegant way; students find the same solutions in Mathemission Study.</div>
       ${d.items.length ? '<div class="part"><h3>E-set</h3>' + d.items.map(itemCard).join('') + '</div>' : ''}
       <div class="part"><h3>Past questions</h3>${list}</div>`;
+    app.querySelectorAll('details.dd').forEach(dd => dd.addEventListener('toggle', () => { if (dd.open && !dd.dataset.done) { dd.dataset.done = 1; showSolution(dd); } }));
     return typeset(app);
   }
 
