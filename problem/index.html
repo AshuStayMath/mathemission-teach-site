@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#060b1f">
+<meta name="robots" content="noindex">
+<title>Weekly Problem · Mathemission Teach</title>
+<link rel="icon" href="/favicon-64.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/kit/kit.css?v=1">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="/kit/kit.js?v=1"></script>
+<style>
+.opt{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;padding:9px 12px;margin:6px 0;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.opt .k{flex:none;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;border:1px solid var(--line);font-weight:700;font-size:13px;color:var(--muted)}
+.opt.sel{border-color:#3a5aa8;background:#1a2a5a}.opt.sel .k{background:#2f6fe4;color:#fff;border-color:#2f6fe4}
+.opt.c{border-color:#22c55e88}.opt.c .k{background:#22c55e;color:#06210f;border-color:#22c55e}.opt.w{border-color:#ef444488}.opt.w .k{background:#ef4444;color:#fff;border-color:#ef4444}
+.timer{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px}
+.verdict{border-radius:12px;padding:12px 14px;margin:12px 0;border:1px solid var(--line);background:var(--panel)}
+.verdict h3{font-size:18px;margin-bottom:2px}
+.verdict.ok{border-color:#22c55e66}.verdict.ok h3{color:var(--green)}
+.verdict.part{border-color:#f5c54266}.verdict.part h3{color:var(--gold)}
+.verdict.no{border-color:#ef444466}.verdict.no h3{color:#ff8a8a}
+.weeks li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);list-style:none}
+.weeks ul{padding:0}
+.hero{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><span class="logo">M</span><span>Mathemission Teach<small id="sub"></small></span></a>
+  <nav class="nav" id="nav"></nav>
+  <span id="plan" class="plan hidden"></span>
+</header>
+<main class="wrap" id="app"><div class="spin">Loading…</div></main>
+<footer class="wrap">AK · Stay Mathactive · <a href="https://mathemission.in">mathemission.in</a></footer>
+<div id="toast" class="toast hidden"></div>
+<script>
+(() => {
+'use strict';
+const K = window.MMK, { esc, toast, typeset } = K;
+const app = document.getElementById('app');
+K.chrome('Weekly Problem');
+
+const START = Date.UTC(2026, 10, 8, 18, 30);          // Monday 9 Nov 2026, 00:00 IST = week 1
+const WEEK = 7 * 864e5;
+const KV = 'teach_weekly_problem';
+const INTRO = `<h1><small>Mathemission Teach</small>Weekly Problem</h1>
+  <p class="lead">One hard JEE Advanced problem every Monday, just for you. Solve it first, take a hint only if you need one, then compare your method with the full solution and the elegant way.</p>`;
+
+let CH = [], POOL = [], LOG = {}, SCHED = {};
+const nowWeek = () => Math.max(1, Math.floor((Date.now() - START) / WEEK) + 1);
+const weekKey = w => 'W' + String(w).padStart(3, '0');
+const weekDates = w => { const a = new Date(START + (w - 1) * WEEK + 6 * 36e5), b = new Date(+a + 6 * 864e5); const f = d => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }); return `${f(a)} – ${f(b)}`; };
+
+/* week → question: AK's schedule first (problem/schedule.json), otherwise a fixed pick that never repeats. */
+let picks = null;
+function qFor(w) {
+  if (SCHED[w]) return SCHED[w];
+  if (!picks) {
+    picks = {}; const used = new Set(Object.values(SCHED));
+    for (let i = 1; i <= nowWeek() + 12; i++) {
+      if (SCHED[i]) { used.add(SCHED[i]); continue; }
+      let best = null, bh = Infinity;
+      for (const q of POOL) { if (used.has(q.id)) continue; const h = K.hash(q.id + '|week' + i); if (h < bh) { bh = h; best = q.id; } }
+      if (best) { picks[i] = best; used.add(best); }
+    }
+  }
+  return picks[w];
+}
+
+(async () => {
+  if (!await K.boot(app, INTRO)) return;
+  try {
+    const [ch, pool, log, sched] = await Promise.all([
+      K.chapters(),
+      K.fetchAll('questions', 'id,chapter_id,qtype,passage_id,difficulty', q => q.eq('status', 'published').eq('track', 'adv').eq('difficulty', 'Difficult').in('qtype', ['SC', 'MC', 'NUM']).not('id', 'like', 'RA%').is('passage_id', null).order('id')),
+      K.kvGet(KV, {}),
+      fetch('/problem/schedule.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : {}), () => ({}))
+    ]);
+    CH = ch; POOL = pool; LOG = log || {};
+    Object.entries(sched.weeks || {}).forEach(([w, id]) => { SCHED[+w] = id; });
+  } catch (e) { app.innerHTML = INTRO + `<div class="lock"><h3>Couldn’t load this week’s problem</h3><p>${esc(e.message)}</p></div>`; return; }
+  window.addEventListener('hashchange', route);
+  route();
+})();
+
+function route() {
+  const w = +(location.hash.match(/w=(\d+)/) || [])[1] || nowWeek();
+  window.scrollTo(0, 0);
+  if (w > nowWeek() && !K.S.admin) return show(nowWeek());
+  if (w < nowWeek() && !K.pro()) return locked(w);
+  show(w);
+}
+function locked(w) {
+  app.innerHTML = `<div class="crumbs"><a href="#">Weekly Problem</a> › Week ${w}</div>
+    <div class="lock"><h3>Past problems come with Teach Pro</h3><p>The Free plan has this week’s problem. Teach Pro (coming soon) opens every past week, with your attempts and notes.</p><a class="btn" href="#">This week’s problem</a></div>`;
+}
+
+let Q = null, SOL = null, T0 = 0, tick = null, ANS = null, HINTS = 0;
+async function show(w) {
+  clearInterval(tick);
+  const id = qFor(w);
+  if (!id) { app.innerHTML = INTRO + '<div class="lock"><h3>No problem for this week yet</h3><p>Check back on Monday.</p></div>'; return; }
+  app.innerHTML = INTRO + '<div class="spin">Getting the problem…</div>';
+  const [{ data: q }, { data: s }] = await Promise.all([
+    K.sb.from('questions').select('id,track,chapter_id,year,paper,qtype,stem_html,options,answer_key,difficulty').eq('id', id).maybeSingle(),
+    K.sb.from('solutions').select('key_idea,hints,full_html,alt_html,wrong_options,focus_note,trap_alert,note_html').eq('question_id', id).maybeSingle()
+  ]);
+  if (!q) { app.innerHTML = INTRO + '<div class="lock"><h3>This week’s problem isn’t available</h3><p>Try again in a little while.</p></div>'; return; }
+  Q = q; SOL = s || {}; HINTS = 0;
+  const rec = LOG[weekKey(w)];
+  const k = K.kind(q);
+  ANS = rec && rec.ans !== undefined ? rec.ans : (k === 'mc' ? [] : null);
+  const ch = (CH.find(c => c.id === q.chapter_id) || {}).name || '';
+  const done = !!(rec && rec.verdict);
+  const tried = Object.values(LOG).filter(r => r.verdict && r.verdict !== 'revealed');
+  const right = tried.filter(r => r.verdict === 'correct').length;
+  let streak = 0; for (let i = nowWeek(); i >= 1; i--) { const r = LOG[weekKey(i)]; if (r && r.verdict && r.verdict !== 'revealed') streak++; else if (i !== nowWeek()) break; }
+  app.innerHTML = `${w === nowWeek() ? INTRO : `<div class="crumbs"><a href="#">Weekly Problem</a> › Week ${w}</div>`}
+    <div class="statline"><span>Weeks tried <b>${tried.length}</b></span><span>Solved <b>${right}</b></span><span>Streak <b>${streak}</b> week${streak === 1 ? '' : 's'}</span></div>
+    <article class="q" style="padding:16px">
+      <div class="hero"><div><div class="lab">Week ${w} · ${weekDates(w)}</div><h2 style="margin:2px 0 0">${esc(ch)}</h2>
+        <div class="src">${esc(K.typeName(q))} · Difficult${done ? ' · ' + esc(K.srcText(q)) : ''}</div></div>
+        <span class="timer" id="tm"></span></div>
+      <div id="qb" class="${done || (rec && rec.started) ? '' : 'hidden'}">
+        <div class="stem" style="margin-top:8px">${q.stem_html}</div>
+        <div id="inp"></div>
+        <div id="hb"></div>
+        ${done ? '' : `<div class="actions"><button class="btn" id="sub">Check my answer</button><button class="btn ghost" id="h1">Hint 1</button><button class="btn ghost" id="h2" disabled>Hint 2</button><button class="btn ghost" id="rev">Show the solution</button></div>`}
+      </div>
+      ${done || (rec && rec.started) ? '' : `<div id="st" style="margin-top:12px"><p class="dim small">Find 20 quiet minutes. The timer starts when you open the problem, and nobody else sees your attempt.</p><div class="actions"><button class="btn" id="go">Open the problem</button></div></div>`}
+    </article>
+    <div id="res"></div>
+    ${weeksBox(w)}`;
+  inputs(done);
+  if (done) { result(rec); }
+  else {
+    const go = app.querySelector('#go');
+    const begin = async () => { app.querySelector('#qb').classList.remove('hidden'); go && app.querySelector('#st').remove(); T0 = Date.now() - ((rec && rec.secs) || 0) * 1000; startTimer();
+      LOG[weekKey(w)] = Object.assign(LOG[weekKey(w)] || {}, { qid: id, started: new Date().toISOString() }); K.kvSet(KV, LOG); typeset(app.querySelector('#qb')); };
+    if (go) go.onclick = begin; else begin();
+    app.querySelector('#h1').onclick = () => hint(0);
+    app.querySelector('#h2').onclick = () => hint(1);
+    app.querySelector('#sub').onclick = () => submit(w, false);
+    app.querySelector('#rev').onclick = () => { if (confirm('Show the full solution without checking an answer?')) submit(w, true); };
+  }
+  wireWeeks();
+  typeset(app);
+}
+function startTimer() {
+  const el = app.querySelector('#tm');
+  const f = () => { const s = Math.floor((Date.now() - T0) / 1000); el.textContent = `⏱ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  f(); tick = setInterval(f, 1000);
+}
+function inputs(done) {
+  const k = K.kind(Q), box = app.querySelector('#inp');
+  if (k === 'num') {
+    box.innerHTML = `<label class="f">Your answer (a number)</label><input class="i" id="num" inputmode="decimal" style="max-width:220px" value="${ANS !== null ? esc(ANS) : ''}" ${done ? 'disabled' : ''}>`;
+    if (!done) box.querySelector('#num').oninput = e => { ANS = e.target.value.trim(); };
+    return;
+  }
+  const opts = Q.options || [];
+  box.innerHTML = (k === 'mc' ? '<p class="small dim" style="margin-top:8px">One or more options are correct.</p>' : '') +
+    opts.map((o, j) => `<button class="opt" data-j="${j}" ${done ? 'disabled' : ''}><span class="k">${K.LET[j]}</span><span>${o}</span></button>`).join('');
+  const paint = () => box.querySelectorAll('.opt').forEach(b => { const j = +b.dataset.j; b.classList.toggle('sel', k === 'mc' ? (ANS || []).includes(j) : ANS === j); });
+  paint();
+  if (!done) box.querySelectorAll('.opt').forEach(b => b.onclick = () => { const j = +b.dataset.j; if (k === 'mc') ANS = ANS.includes(j) ? ANS.filter(x => x !== j) : [...ANS, j].sort(); else ANS = j; paint(); });
+}
+function hint(i) {
+  const h = (SOL.hints || [])[i];
+  if (!h) return toast('No hint written for this one.');
+  HINTS = Math.max(HINTS, i + 1);
+  const hb = app.querySelector('#hb');
+  if (!hb.querySelector(`[data-h="${i}"]`)) { hb.insertAdjacentHTML('beforeend', `<div class="hint" data-h="${i}"><span>Hint ${i + 1}</span>${h}</div>`); typeset(hb); }
+  if (i === 0) app.querySelector('#h2').disabled = false;
+}
+function grade() {
+  const k = K.kind(Q), key = Q.answer_key;
+  if (k === 'sc') return ANS === key.ans ? ['correct', 3] : ['wrong', -1];
+  if (k === 'mc') { const c = new Set(key.ans); if (ANS.some(x => !c.has(x))) return ['wrong', -2]; return ANS.length === c.size ? ['correct', 4] : ['partial', ANS.length]; }
+  const x = parseFloat(String(ANS).replace('−', '-'));
+  const tol = /\.\d/.test(key.keytxt || '') ? 0.0105 : 0.0001;
+  const vals = Array.isArray(key.ans) ? key.ans : [key.ans];
+  return vals.some(v => Math.abs(x - v) <= tol) ? ['correct', 4] : ['wrong', 0];
+}
+async function submit(w, reveal) {
+  const k = K.kind(Q);
+  if (!reveal && (ANS === null || ANS === '' || (k === 'mc' && !ANS.length) || (k === 'num' && isNaN(parseFloat(String(ANS).replace('−', '-')))))) return toast(k === 'num' ? 'Type a number first.' : 'Choose an option first.');
+  clearInterval(tick);
+  const [verdict, marks] = reveal ? ['revealed', null] : grade();
+  const rec = Object.assign(LOG[weekKey(w)] || {}, { qid: Q.id, ans: reveal ? null : ANS, verdict, marks, hints: HINTS, secs: Math.round((Date.now() - T0) / 1000), at: new Date().toISOString() });
+  LOG[weekKey(w)] = rec;
+  const ok = await K.kvSet(KV, LOG);
+  if (!ok) toast('Saved on this device only (couldn’t reach your account).');
+  show(w);
+}
+function result(rec) {
+  const k = K.kind(Q), key = Q.answer_key;
+  if (k !== 'num') app.querySelectorAll('#inp .opt').forEach(b => { const j = +b.dataset.j; const good = k === 'mc' ? key.ans.includes(j) : key.ans === j; const mine = k === 'mc' ? (rec.ans || []).includes(j) : rec.ans === j; b.classList.toggle('c', good); b.classList.toggle('w', mine && !good); b.classList.remove('sel'); });
+  const m = Math.floor((rec.secs || 0) / 60), s = (rec.secs || 0) % 60;
+  const head = { correct: ['ok', 'Solved.'], partial: ['part', 'Partly right.'], wrong: ['no', 'Not this time.'], revealed: ['', 'Solution opened.'] }[rec.verdict];
+  const blk = (l, h, c = 'hint') => h ? `<div class="${c}"><span>${l}</span>${h}</div>` : '';
+  const w = SOL.wrong_options || {};
+  const wrong = Object.keys(w).length ? `<div class="hint"><span>Why the other options fail</span>${Object.keys(w).sort().map(x => `<div><b>(${esc(x)})</b> ${w[x]}</div>`).join('')}</div>` : '';
+  const hints = (SOL.hints || []).map((h, i) => blk('Hint ' + (i + 1), h)).join('');
+  const res = app.querySelector('#res');
+  res.innerHTML = `<div class="verdict ${head[0]}"><h3>${head[1]}</h3>
+      <div class="statline"><span>Answer <b>${esc(K.keyText(Q))}</b></span>${rec.verdict !== 'revealed' ? `<span>Yours <b>${esc(mine(rec))}</b></span><span>Marks <b>${rec.marks > 0 ? '+' : ''}${rec.marks}</b></span>` : ''}<span>Time <b>${m}:${String(s).padStart(2, '0')}</b></span><span>Hints <b>${rec.hints || 0}</b></span></div></div>
+    ${blk('Key idea', SOL.key_idea, 'ans')}
+    <details class="ha" ${rec.verdict === 'revealed' ? '' : ''}><summary>Hints</summary>${hints || '<p class="small dim">No hints written.</p>'}</details>
+    ${blk('Full solution', SOL.full_html)}${blk('The elegant way', SOL.alt_html)}${wrong}
+    ${blk('Where it usually slips', SOL.focus_note, 'note')}${blk('Trap alert', SOL.trap_alert, 'note')}${blk('Note from AK', SOL.note_html, 'note')}
+    <div class="box"><h3>My notes on this problem</h3><p class="small dim">Your own method, a neater step, or how you would teach it. Only you see this.</p>
+      <textarea class="i" id="note" rows="4" placeholder="Write in plain text or LaTeX ($...$)">${esc(rec.note || '')}</textarea>
+      <div class="actions"><button class="btn ghost" id="sn">Save note</button></div></div>`;
+  res.querySelector('#sn').onclick = async () => { rec.note = res.querySelector('#note').value; toast(await K.kvSet(KV, LOG) ? 'Note saved.' : 'Saved on this device only.'); };
+  typeset(res);
+}
+function mine(rec) {
+  const k = K.kind(Q), a = rec.ans;
+  if (a === null || a === undefined) return '—';
+  if (k === 'sc') return `(${K.LET[a]})`;
+  if (k === 'mc') return a.map(i => `(${K.LET[i]})`).join(', ');
+  return String(a);
+}
+function weeksBox(cur) {
+  const now = nowWeek(), rows = [];
+  for (let w = now; w >= 1; w--) {
+    const r = LOG[weekKey(w)], ch = (CH.find(c => c.id === (POOL.find(p => p.id === qFor(w)) || {}).chapter_id) || {}).name || '';
+    const st = !r || !r.verdict ? '<span class="dim">not tried</span>' : r.verdict === 'correct' ? '<span class="good">solved</span>' : r.verdict === 'partial' ? '<span class="gold">partly</span>' : r.verdict === 'wrong' ? '<span class="bad">missed</span>' : '<span class="dim">opened</span>';
+    rows.push(`<li><span>Week ${w} · ${weekDates(w)}<br><small class="dim">${esc(ch)} · ${st}</small></span>${w === cur ? '<span class="pill2">open</span>' : `<a class="btn ghost" href="#w=${w}">${w < now && !K.pro() ? '🔒 ' : ''}Open</a>`}</li>`);
+  }
+  let admin = '';
+  if (K.S.admin) {
+    const next = []; for (let w = now + 1; w <= now + 8; w++) next.push(`<li><span>Week ${w} · ${weekDates(w)}<br><small class="dim">${esc(qFor(w) || '')}${SCHED[w] ? ' · scheduled' : ''}</small></span><a class="btn ghost" href="#w=${w}">Preview</a></li>`);
+    admin = `<div class="box weeks"><h3>Admin · coming weeks</h3><p class="small dim">Teachers can’t see these. To choose a problem yourself, add it to <code>problem/schedule.json</code> as <code>"week": "question id"</code>.</p><ul>${next.join('')}</ul></div>`;
+  }
+  return `<div class="box weeks"><h3>All weeks</h3><ul>${rows.join('')}</ul>${K.pro() ? '' : '<p class="small dim">Free plan: this week’s problem. Past weeks open with Teach Pro (coming soon).</p>'}</div>${admin}`;
+}
+function wireWeeks() {}
+})();
+</script>
+</body>
+</html>

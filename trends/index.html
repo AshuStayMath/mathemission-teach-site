@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#060b1f">
+<meta name="robots" content="noindex">
+<title>PYQ Trends · Mathemission Teach</title>
+<link rel="icon" href="/favicon-64.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/kit/kit.css?v=1">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="/kit/kit.js?v=1"></script>
+<style>
+.wrap{max-width:1100px}
+.heat{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.heat table{border-collapse:separate;border-spacing:0;margin:0;font-size:12.5px;width:100%}
+.heat th,.heat td{border:none;border-bottom:1px solid var(--line);padding:5px 6px;min-width:0;text-align:center;white-space:nowrap}
+.heat thead th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600;font-size:11.5px}
+.heat .cn{position:sticky;left:0;background:var(--panel);text-align:left;min-width:150px;max-width:190px;white-space:normal;z-index:1}
+.heat thead .cn{z-index:2;background:var(--panel2)}
+.heat tr.g td{background:var(--panel2);color:var(--cyan);text-align:left;font-size:11px;letter-spacing:.12em;text-transform:uppercase;position:sticky;left:0}
+.heat tbody tr.r{cursor:pointer}.heat tbody tr.r:hover .cn{color:var(--cyan)}
+.heat td.v{font-variant-numeric:tabular-nums;color:#dfe8ff}
+.heat td.z{color:#3b4a75}
+.up{color:var(--green);font-weight:700}.down{color:#ff8a8a;font-weight:700}.flat{color:var(--muted)}
+.cards4{display:grid;gap:10px;grid-template-columns:1fr 1fr}@media(min-width:820px){.cards4{grid-template-columns:repeat(4,1fr)}}
+.cards4 .box{margin:0}.cards4 ol{padding-left:18px;font-size:13.5px}.cards4 li{margin:2px 0}
+.cards4 a{text-decoration:none;color:var(--text)}.cards4 a:hover{color:var(--cyan)}
+.bars{display:grid;gap:4px}.bar{display:grid;grid-template-columns:44px 1fr 64px;gap:8px;align-items:center;font-size:12.5px}
+.bar i{display:block;height:12px;border-radius:4px;background:linear-gradient(90deg,#2f6fe4,#22d3ee)}
+.bar span:last-child{color:var(--muted);text-align:right}
+.split{display:flex;flex-wrap:wrap;gap:8px}.split span{font-size:13px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:4px 9px}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><span class="logo">M</span><span>Mathemission Teach<small id="sub"></small></span></a>
+  <nav class="nav" id="nav"></nav>
+  <span id="plan" class="plan hidden"></span>
+</header>
+<main class="wrap" id="app"><div class="spin">Loading…</div></main>
+<footer class="wrap">AK · Stay Mathactive · <a href="https://mathemission.in">mathemission.in</a></footer>
+<div id="toast" class="toast hidden"></div>
+<script>
+(() => {
+'use strict';
+const K = window.MMK, { esc, toast, typeset } = K;
+const app = document.getElementById('app');
+K.chrome('PYQ Trends');
+
+const INTRO = `<h1><small>Mathemission Teach</small>PYQ Trends</h1>
+  <p class="lead">How much each chapter is worth in JEE, year by year, from every verified past question in the bank. Use it to decide where your class time goes.</p>`;
+let CH = [], Q = [];
+const V = { t: 'adv', win: 'all', view: 'share', sort: 'syllabus' };
+const YEARS = { adv: [2006, 2026], main: [2019, 2026] };
+const WINS = { adv: [['all', '2006–2026'], ['10', 'Last 10 years'], ['5', 'Last 5 years']], main: [['all', '2019–2026'], ['4', 'Last 4 years'], ['2', 'Last 2 years']] };
+
+(async () => {
+  if (!await K.boot(app, INTRO)) return;
+  app.innerHTML = INTRO + '<div class="spin" id="ld">Counting past questions…</div>';
+  try {
+    [CH, Q] = await Promise.all([
+      K.chapters(),
+      K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,difficulty,session', q => q.eq('status', 'published').not('id', 'like', 'RA%').order('id'),
+        n => { const l = document.getElementById('ld'); if (l) l.textContent = `Counting past questions… ${n}`; })
+    ]);
+  } catch (e) { app.innerHTML = INTRO + `<div class="lock"><h3>Couldn’t load the questions</h3><p>${esc(e.message)}</p></div>`; return; }
+  Q = Q.filter(q => q.year);
+  window.addEventListener('hashchange', route);
+  route();
+})();
+
+function route() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('t')) V.t = h.get('t') === 'main' ? 'main' : 'adv';
+  const c = +h.get('c');
+  window.scrollTo(0, 0);
+  if (c && CH.find(x => x.id === c)) return chapter(c);
+  board();
+}
+
+/* years in the window, papers per year, questions per chapter per year */
+function stats() {
+  const [y0, y1] = YEARS[V.t];
+  const from = V.win === 'all' ? y0 : y1 - (+V.win) + 1;
+  const years = []; for (let y = from; y <= y1; y++) years.push(y);
+  const qs = Q.filter(q => q.track === V.t && q.year >= from && q.year <= y1);
+  const papers = {}, perYear = {}, cell = {};
+  qs.forEach(q => {
+    (papers[q.year] ||= new Set()).add(V.t === 'main' ? (q.paper || q.session || '?') : (q.paper || '1'));
+    perYear[q.year] = (perYear[q.year] || 0) + 1;
+    ((cell[q.chapter_id] ||= {})[q.year] = (cell[q.chapter_id][q.year] || 0) + 1);
+  });
+  const yrs = years.filter(y => perYear[y]);
+  const val = (c, y) => { const n = (cell[c] || {})[y] || 0; return V.view === 'share' ? (perYear[y] ? 100 * n / perYear[y] : 0) : (papers[y] ? n / papers[y].size : 0); };
+  const chs = CH.filter(c => c.track === V.t).map(c => {
+    const n = yrs.reduce((a, y) => a + ((cell[c.id] || {})[y] || 0), 0);
+    const shares = yrs.map(y => (perYear[y] ? 100 * (((cell[c.id] || {})[y]) || 0) / perYear[y] : 0));
+    const avg = shares.length ? shares.reduce((a, b) => a + b, 0) / shares.length : 0;
+    const k = Math.min(3, Math.floor(yrs.length / 2));
+    const recent = k ? shares.slice(-k).reduce((a, b) => a + b, 0) / k : 0;
+    const before = shares.length - k ? shares.slice(0, -k).reduce((a, b) => a + b, 0) / (shares.length - k) : 0;
+    const diff = recent - before;
+    const trend = !k ? 0 : (diff >= 1.5 && recent > before * 1.3) ? 1 : (diff <= -1.5 && recent < before * 0.7) ? -1 : 0;
+    const lastSeen = Math.max(0, ...yrs.filter(y => (cell[c.id] || {})[y]));
+    const ppp = yrs.reduce((a, y) => a + (((cell[c.id] || {})[y]) || 0) / papers[y].size, 0) / (yrs.length || 1);
+    return { c, n, avg, recent, before, trend, lastSeen, ppp };
+  });
+  return { yrs, perYear, papers, cell, val, chs };
+}
+
+function board() {
+  const st = stats(), { yrs, val, chs } = st;
+  const max = Math.max(1e-9, ...chs.flatMap(r => yrs.map(y => val(r.c.id, y))));
+  const fmt = v => (v ? (V.view === 'share' ? (v >= 9.95 ? v.toFixed(0) : v.toFixed(1)) : v.toFixed(1)) : '·');
+  const heat = v => v ? `background:rgba(34,211,238,${(0.08 + 0.62 * Math.min(1, v / max)).toFixed(2)})` : '';
+  let rows = chs.filter(r => r.n);
+  if (V.sort === 'most') rows.sort((a, b) => b.avg - a.avg);
+  else if (V.sort === 'rising') rows.sort((a, b) => (b.recent - b.before) - (a.recent - a.before));
+  else rows.sort((a, b) => (a.c.grp_order || 0) - (b.c.grp_order || 0) || a.c.syllabus_order - b.c.syllabus_order);
+  const arrow = t => t > 0 ? '<span class="up" title="Rising">▲</span>' : t < 0 ? '<span class="down" title="Cooling">▼</span>' : '<span class="flat">–</span>';
+  let lastG = null;
+  const body = rows.map(r => {
+    let g = '';
+    if (V.sort === 'syllabus' && r.c.grp !== lastG) { lastG = r.c.grp; g = `<tr class="g"><td colspan="${yrs.length + 3}">${esc(r.c.grp || '')}</td></tr>`; }
+    return g + `<tr class="r" data-c="${r.c.id}"><td class="cn">${esc(r.c.name)}</td>${yrs.map(y => { const v = val(r.c.id, y); return `<td class="v ${v ? '' : 'z'}" style="${heat(v)}">${fmt(v)}</td>`; }).join('')}
+      <td class="v"><b>${r.ppp.toFixed(1)}</b></td><td>${arrow(r.trend)}</td></tr>`;
+  }).join('');
+  const top = chs.filter(r => r.n).sort((a, b) => b.avg - a.avg).slice(0, 5);
+  const rising = chs.filter(r => r.trend > 0).sort((a, b) => (b.recent - b.before) - (a.recent - a.before)).slice(0, 5);
+  const cooling = chs.filter(r => r.trend < 0).sort((a, b) => (a.recent - a.before) - (b.recent - b.before)).slice(0, 5);
+  const y1 = YEARS[V.t][1];
+  const quiet = chs.filter(r => r.n && r.lastSeen && r.lastSeen <= y1 - 3).sort((a, b) => a.lastSeen - b.lastSeen).slice(0, 5);
+  const li = (r, extra) => `<li><a href="#t=${V.t}&c=${r.c.id}">${esc(r.c.name)}</a> <span class="pill2">${extra}</span></li>`;
+  const totalQ = yrs.reduce((a, y) => a + st.perYear[y], 0), totalP = yrs.reduce((a, y) => a + st.papers[y].size, 0);
+  app.innerHTML = INTRO + `
+    <div class="seg" id="trk"><button data-v="adv" class="${V.t === 'adv' ? 'on' : ''}">JEE Advanced</button><button data-v="main" class="${V.t === 'main' ? 'on' : ''}">JEE Main</button></div>
+    <div class="statline" style="margin:10px 0"><span><b>${totalQ}</b> questions</span><span><b>${totalP}</b> ${V.t === 'main' ? 'shift papers' : 'papers'}</span><span><b>${yrs.length}</b> years</span></div>
+    <div class="cards4">
+      <div class="box"><h3>Most asked</h3><ol>${top.map(r => li(r, r.avg.toFixed(1) + '%')).join('')}</ol></div>
+      <div class="box"><h3>Rising</h3>${rising.length ? `<ol>${rising.map(r => li(r, `${r.before.toFixed(1)} → ${r.recent.toFixed(1)}%`)).join('')}</ol>` : '<p class="small dim">No chapter is clearly rising in this window.</p>'}</div>
+      <div class="box"><h3>Cooling</h3>${cooling.length ? `<ol>${cooling.map(r => li(r, `${r.before.toFixed(1)} → ${r.recent.toFixed(1)}%`)).join('')}</ol>` : '<p class="small dim">No chapter is clearly cooling in this window.</p>'}</div>
+      <div class="box"><h3>Quiet for 3+ years</h3>${quiet.length ? `<ol>${quiet.map(r => li(r, 'last ' + r.lastSeen)).join('')}</ol>` : '<p class="small dim">Every chapter appeared in the last 3 years.</p>'}</div>
+    </div>
+    <div class="actions" style="align-items:center">
+      <div class="seg" id="win">${WINS[V.t].map(([k, v]) => `<button data-v="${k}" class="${V.win === k ? 'on' : ''}">${v}</button>`).join('')}</div>
+      <div class="seg" id="view"><button data-v="share" class="${V.view === 'share' ? 'on' : ''}">% of the year’s questions</button><button data-v="ppp" class="${V.view === 'ppp' ? 'on' : ''}">Questions per paper</button></div>
+      <div class="seg" id="sort">${[['syllabus', 'Syllabus order'], ['most', 'Most asked'], ['rising', 'Rising first']].map(([k, v]) => `<button data-v="${k}" class="${V.sort === k ? 'on' : ''}">${v}</button>`).join('')}</div>
+    </div>
+    <div class="heat"><table><thead><tr><th class="cn">Chapter</th>${yrs.map(y => `<th>${V.t === 'adv' ? y : "'" + String(y).slice(2)}</th>`).join('')}<th title="Average questions per paper">Per paper</th><th>Trend</th></tr></thead><tbody>${body}</tbody></table></div>
+    <p class="small dim" style="margin-top:8px">${V.view === 'share' ? 'Each cell is the chapter’s share of that year’s maths questions (%), so years with more papers compare fairly.' : `Each cell is the average number of questions per ${V.t === 'main' ? 'shift paper' : 'paper'} that year.`}
+      “Per paper” is the average over the window. ▲ rising / ▼ cooling compares the last 3 years with the years before them. Tap a chapter for its questions.
+      ${V.t === 'main' ? 'JEE Main counts cover the shift papers in the bank, 2019–2026.' : 'Questions that span two chapters are counted under their main chapter.'}</p>`;
+  const seg = (id, key, after) => app.querySelectorAll(`#${id} button`).forEach(b => b.onclick = () => { V[key] = b.dataset.v; after && after(); board(); });
+  seg('trk', 't', () => { V.win = 'all'; history.replaceState(null, '', '#t=' + V.t); });
+  seg('win', 'win'); seg('view', 'view'); seg('sort', 'sort');
+  app.querySelectorAll('tr.r').forEach(tr => tr.onclick = () => { location.hash = `t=${V.t}&c=${tr.dataset.c}`; });
+}
+
+let FULL = {}, SOL = {}, PASS = {};
+async function chapter(cid) {
+  const c = CH.find(x => x.id === cid); V.t = c.track;
+  const qs = Q.filter(q => q.chapter_id === cid).sort((a, b) => b.year - a.year || String(a.paper).localeCompare(String(b.paper)));
+  const st = stats();
+  const all = Q.filter(q => q.track === V.t);
+  const yrsAll = []; for (let y = YEARS[V.t][0]; y <= YEARS[V.t][1]; y++) yrsAll.push(y);
+  const perY = {}; all.forEach(q => perY[q.year] = (perY[q.year] || 0) + 1);
+  const mine = {}; qs.forEach(q => mine[q.year] = (mine[q.year] || 0) + 1);
+  const shares = yrsAll.filter(y => perY[y]).map(y => [y, mine[y] || 0, 100 * (mine[y] || 0) / perY[y]]);
+  const mx = Math.max(1, ...shares.map(s => s[2]));
+  const types = {}; qs.forEach(q => { const t = V.t === 'main' ? (q.qtype === 'NUM' ? 'Numerical' : 'MCQ') : q.passage_id ? 'Paragraph' : ({ SC: 'Single correct', MC: 'Multiple correct', NUM: 'Numerical', MATCH: 'Matching', GRID: 'Matching', PARA: 'Paragraph' })[q.qtype] || q.qtype; types[t] = (types[t] || 0) + 1; });
+  const diffs = {}; qs.forEach(q => { if (q.difficulty) diffs[q.difficulty] = (diffs[q.difficulty] || 0) + 1; });
+  const row = st.chs.find(r => r.c.id === cid) || {};
+  app.innerHTML = `<div class="crumbs"><a href="#t=${V.t}">PYQ Trends</a> › ${V.t === 'adv' ? 'JEE Advanced' : 'JEE Main'}</div>
+    <h1><small>${esc(c.grp || '')}</small>${esc(c.name)}</h1>
+    <div class="statline"><span><b>${qs.length}</b> past questions</span><span>about <b>${(row.avg || 0).toFixed(1)}%</b> of a year’s maths questions</span>${row.lastSeen ? `<span>last asked <b>${row.lastSeen}</b></span>` : ''}</div>
+    <div class="actions"><a class="btn" href="/worksheet/#track=${V.t}&chapter=${cid}">Make a worksheet from this chapter</a></div>
+    <div class="grid two">
+      <div class="box"><h3>Share of each year’s questions</h3><div class="bars">${shares.map(([y, n, s]) => `<div class="bar"><span>${y}</span><span><i style="width:${(100 * s / mx).toFixed(1)}%;${n ? '' : 'background:none'}"></i></span><span>${n ? `${n} · ${s.toFixed(1)}%` : '–'}</span></div>`).join('')}</div></div>
+      <div class="box"><h3>Question types</h3><div class="split">${Object.entries(types).sort((a, b) => b[1] - a[1]).map(([t, n]) => `<span>${esc(t)} <b>${n}</b></span>`).join('')}</div>
+        ${Object.keys(diffs).length ? `<h3 style="margin-top:12px">Difficulty</h3><div class="split">${['Easy', 'Moderate', 'Difficult'].filter(d => diffs[d]).map(d => `<span>${d} <b>${diffs[d]}</b></span>`).join('')}</div>` : ''}
+      </div>
+    </div>
+    <h2 style="margin-top:18px">The questions <small style="display:inline;letter-spacing:0;text-transform:none;color:var(--muted);font-size:13px">newest first</small></h2>
+    <div id="ql"></div><div class="actions"><button class="btn ghost hidden" id="more">Show more</button></div>`;
+  let shown = 0;
+  const more = async () => {
+    const b = app.querySelector('#more'); b.classList.add('hidden');
+    const next = qs.slice(shown, shown + 10); shown += next.length;
+    const need = next.map(q => q.id).filter(id => !FULL[id]);
+    try {
+      if (need.length) (await K.fetchIn('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,stem_html,options,answer_key,difficulty', 'id', need)).forEach(r => FULL[r.id] = r);
+      const pids = [...new Set(next.map(q => FULL[q.id] && FULL[q.id].passage_id).filter(p => p && !PASS[p]))];
+      if (pids.length) (await K.fetchIn('passages', 'id,stem_html', 'id', pids)).forEach(p => PASS[p.id] = p.stem_html);
+    } catch (e) { toast('Couldn’t load the questions: ' + e.message); return; }
+    const box = document.createElement('div');
+    box.innerHTML = next.map(m => { const q = FULL[m.id]; if (!q) return ''; q._pass = PASS[q.passage_id];
+      return `<article class="q"><header><span class="lab">${esc(K.srcText(q))}</span><span>${esc(K.typeName(q))}${q.difficulty ? ' · ' + esc(q.difficulty) : ''}</span></header>${K.body(q)}
+        <details class="ha" data-q="${esc(q.id)}"><summary>Answer${V.t === 'adv' ? ' and Deep Dive solution' : ''}</summary><div class="ans"><span>Key</span>${esc(K.keyText(q))}</div><div class="ddb"></div></details></article>`; }).join('');
+    app.querySelector('#ql').appendChild(box);
+    box.querySelectorAll('details.ha').forEach(d => d.addEventListener('toggle', () => { if (d.open && !d.dataset.done) { d.dataset.done = 1; solution(d); } }));
+    typeset(box);
+    if (shown < qs.length) { b.textContent = `Show more (${qs.length - shown} left)`; b.classList.remove('hidden'); }
+  };
+  app.querySelector('#more').onclick = more;
+  more();
+}
+async function solution(d) {
+  const box = d.querySelector('.ddb'), id = d.dataset.q;
+  if (!(id in SOL)) { const { data } = await K.sb.from('solutions').select('key_idea,hints,full_html,alt_html,focus_note').eq('question_id', id).maybeSingle(); SOL[id] = data || null; }
+  const s = SOL[id]; if (!s) return;
+  const blk = (l, h, c = 'hint') => h ? `<div class="${c}"><span>${l}</span>${h}</div>` : '';
+  box.innerHTML = blk('Key idea', s.key_idea, 'ans') + blk('Solution', s.full_html) + blk('The elegant way', s.alt_html) + blk('Where it usually slips', s.focus_note, 'note');
+  typeset(box);
+}
+})();
+</script>
+</body>
+</html>
