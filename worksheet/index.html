@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#060b1f">
+<meta name="robots" content="noindex">
+<title>Worksheet Builder · Mathemission Teach</title>
+<link rel="icon" href="/favicon-64.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/kit/kit.css?v=2">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="/kit/kit.js?v=1"></script>
+<style>
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;margin:20px 0 4px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+.sec-h h3{font-size:16px}.sec-h span{font-size:12px;color:var(--muted)}
+.q .qn{color:var(--cyan);font-weight:700;margin-right:6px}
+.saved li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);list-style:none}
+.saved ul{padding:0}
+.lockt{font-size:11px;color:var(--gold);border:1px solid #f5c54266;border-radius:999px;padding:1px 7px;margin-left:6px}
+#sheet{display:none}
+@media print{
+  @page{size:A4;margin:14mm 13mm 16mm}
+  html,body{background:#fff!important;color:#000!important;font:10.5pt/1.45 "Latin Modern Roman","CMU Serif",Georgia,"Times New Roman",serif}
+  body>*:not(#sheet){display:none!important}
+  #sheet{display:block}
+  #sheet .set{break-after:page}
+  #sheet .set:last-child{break-after:auto}
+  #sheet .hd{text-align:center;border-bottom:1.5px solid #000;padding-bottom:6px;margin-bottom:8px}
+  #sheet .hd .inst{font-size:16pt;font-weight:700;letter-spacing:.02em}
+  #sheet .hd .tt{font-size:13pt;font-weight:700;margin-top:2px}
+  #sheet .hd .meta{display:flex;justify-content:space-between;font-size:10pt;margin-top:6px}
+  #sheet .lines{display:flex;gap:24px;font-size:10pt;margin:8px 0}
+  #sheet .lines span{flex:1;border-bottom:1px solid #000;padding-bottom:1px}
+  #sheet .ins{font-size:9.5pt;border:1px solid #000;padding:5px 8px;margin:6px 0 10px}
+  #sheet .ins ul{padding-left:16px}
+  #sheet h4{font-size:11pt;margin:12px 0 6px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #000}
+  #sheet .cols{column-count:2;column-gap:8mm;column-rule:1px solid #bbb}
+  #sheet .pq{break-inside:avoid;margin:0 0 9px;display:flex;gap:6px}
+  #sheet .pq .n{font-weight:700;min-width:22px}
+  #sheet .pq .b{flex:1;min-width:0}
+  #sheet .stem,#sheet .tw{overflow:visible}
+  #sheet ol.opts{margin:3px 0 0;padding-left:2px}
+  #sheet ol.opts li{margin:1px 0}
+  #sheet table{border-collapse:collapse}#sheet td,#sheet th{border:1px solid #000;padding:2px 6px;min-width:0}
+  #sheet .box{background:none;border:1px solid #000;color:#000}
+  #sheet .box h3{color:#000}
+  #sheet .key{width:100%;font-size:10pt}#sheet .key td,#sheet .key th{text-align:center}
+  #sheet .sol{break-inside:avoid-page;margin:0 0 10px;padding-bottom:6px;border-bottom:1px dotted #888}
+  #sheet .sol .lb{font-size:8.5pt;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-top:4px}
+  #sheet mjx-container{max-width:none;overflow:visible}
+  #sheet .foot{position:fixed;left:0;right:0;bottom:-10mm;text-align:center;font-size:8pt;color:#444}
+  #sheet *{color:#000}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><span class="logo">M</span><span>Mathemission Teach<small id="sub"></small></span></a>
+  <nav class="nav" id="nav"></nav>
+  <span id="plan" class="plan hidden"></span>
+</header>
+<main class="wrap" id="app"><div class="spin">Loading…</div></main>
+<footer class="wrap">AK · Stay Mathactive · <a href="https://mathemission.in">mathemission.in</a></footer>
+<div id="toast" class="toast hidden"></div>
+<div id="sheet"></div>
+<script>
+(() => {
+'use strict';
+const K = window.MMK, { esc, toast, typeset, S } = K;
+const app = document.getElementById('app');
+K.chrome('Worksheet Builder');
+
+const FREE_MAX = 15, PRO_MAX = 90, FREE_SAVES = 3;
+const SOURCES = { main: 'JEE Main PYQs', adv: 'JEE Advanced PYQs', ra: 'Rankers Assignment Plus', advra: 'Advanced + RA Plus' };
+const BUCKETS = {
+  main: [['sc', 'MCQ', 4, -1], ['num', 'Numerical', 4, -1]],
+  adv: [['sc', 'Single correct', 3, -1], ['mc', 'Multiple correct', 4, -2], ['num', 'Numerical', 4, 0], ['match', 'Matching', 3, -1]]
+};
+const DIFF = { any: null, easy: [.5, .4, .1], balanced: [.3, .5, .2], hard: [.1, .4, .5] };
+const DNAME = ['Easy', 'Moderate', 'Difficult'];
+
+let CH = [], META = [], FULL = {}, SAVED = [], PREFS = {};
+const W = {
+  id: null, title: '', source: 'adv', chapters: [], yFrom: 2006, yTo: 2026, diff: 'balanced', order: 'easy', avoid: true,
+  counts: { main: { sc: 20, num: 5 }, adv: { sc: 4, mc: 4, num: 4, match: 0 } }, marking: true,
+  sets: 1, key: true, sols: false, cols: false, minutes: 0, items: []
+};
+const track = () => (W.source === 'main' ? 'main' : 'adv');
+const bucketOf = q => { const k = K.kind(q); if (q.track === 'main') return k === 'sc' ? 'sc' : 'num'; if (q.qtype === 'MATCH' || k === 'grid') return 'match'; return k; };
+const diffIx = q => Math.max(0, DNAME.indexOf(q.difficulty || 'Moderate'));
+const chName = id => (CH.find(c => c.id === id) || {}).name || '';
+const chOrder = id => (CH.find(c => c.id === id) || {}).syllabus_order || 0;
+
+const INTRO = `<h1><small>Mathemission Teach</small>Worksheet &amp; Test Builder</h1>
+  <p class="lead">Pick chapters, a pattern and how many questions. Teach chooses verified questions, balances the difficulty and makes a printable sheet in your name, with the answer key.</p>`;
+
+(async () => {
+  if (!await K.boot(app, INTRO)) return;
+  app.innerHTML = INTRO + '<div class="spin" id="ld">Loading the question bank…</div>';
+  try {
+    [CH, META, SAVED, PREFS] = await Promise.all([
+      K.chapters(),
+      K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty', q => q.eq('status', 'published').order('id'),
+        n => { const l = document.getElementById('ld'); if (l) l.textContent = `Loading the question bank… ${n}`; }),
+      K.kvGet('teach_worksheets', []),
+      K.kvGet('teach_sheet_prefs', {})
+    ]);
+  } catch (e) { app.innerHTML = INTRO + `<div class="lock"><h3>Couldn’t load the question bank</h3><p>${esc(e.message)}</p></div>`; return; }
+  META = META.filter(q => !q.passage_id && q.answer_key);   // paragraph sets stay out of worksheets for now
+  W.inst = PREFS.inst || ''; W.teacher = PREFS.teacher || ''; W.batch = PREFS.batch || '';
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('track')) W.source = h.get('track') === 'main' ? 'main' : 'adv';
+  if (h.get('chapter')) W.chapters = [+h.get('chapter')];
+  if (W.source === 'main') { W.yFrom = 2019; }
+  form();
+})();
+
+/* ---------------- step 1: the form ---------------- */
+function pool() {
+  const t = track();
+  return META.filter(q => {
+    if (q.track !== t) return false;
+    if (W.source === 'adv' && K.isRA(q)) return false;
+    if (W.source === 'ra' && !K.isRA(q)) return false;
+    if (W.chapters.length && !W.chapters.includes(q.chapter_id)) return false;
+    if (!K.isRA(q) && q.year && (q.year < W.yFrom || q.year > W.yTo)) return false;
+    return true;
+  });
+}
+const usedIds = () => new Set(SAVED.filter(s => s.id !== W.id).flatMap(s => s.items || []));
+function total() { const c = W.counts[track()]; return Object.values(c).reduce((a, b) => a + (+b || 0), 0); }
+
+function form() {
+  const t = track(), p = pool(), used = usedIds();
+  const avail = Object.fromEntries(BUCKETS[t].map(([b]) => [b, p.filter(q => bucketOf(q) === b && !(W.avoid && used.has(q.id))).length]));
+  const groups = [];
+  CH.filter(c => c.track === t).sort((a, b) => (a.grp_order || 0) - (b.grp_order || 0) || a.syllabus_order - b.syllabus_order)
+    .forEach(c => { let g = groups.find(g => g[0] === c.grp); if (!g) groups.push(g = [c.grp, []]); g[1].push(c); });
+  const nIn = id => META.filter(q => q.chapter_id === id && (W.source !== 'adv' || !K.isRA(q)) && (W.source !== 'ra' || K.isRA(q))).length;
+  const yrs = t === 'main' ? [2019, 2026] : [2006, 2026];
+  const max = K.pro() ? PRO_MAX : FREE_MAX;
+  const proTag = K.pro() ? '' : '<span class="lockt">Pro</span>';
+  app.innerHTML = INTRO + `
+    ${savedBox()}
+    <div class="box">
+      <h3>1 · What goes in</h3>
+      <label class="f">Questions from</label>
+      <div class="seg" id="src">${Object.entries(SOURCES).map(([k, v]) => `<button data-v="${k}" class="${W.source === k ? 'on' : ''}">${v}</button>`).join('')}</div>
+      <label class="f">Chapters <span class="pill2">(none picked = all chapters)</span></label>
+      <div id="chs">${groups.map(([g, cs]) => `<div class="grp">${esc(g || '')}</div><div class="chips">${cs.map(c => { const n = nIn(c.id); return n ? `<button class="chip ${W.chapters.includes(c.id) ? 'on' : ''}" data-c="${c.id}">${esc(c.name)} <span class="pill2">${n}</span></button>` : ''; }).join('')}</div>`).join('')}</div>
+      ${W.source === 'ra' ? '' : `<div class="row" style="margin-top:6px">
+        <div><label class="f">From year</label><input class="i" type="number" id="yf" min="${yrs[0]}" max="${yrs[1]}" value="${W.yFrom}"></div>
+        <div><label class="f">To year</label><input class="i" type="number" id="yt" min="${yrs[0]}" max="${yrs[1]}" value="${W.yTo}"></div></div>`}
+      <label class="f">How many of each type <span class="pill2">(available in brackets)</span></label>
+      <div class="row3">${BUCKETS[t].map(([b, name]) => `<div><label class="f" style="margin-top:0">${name} <span class="pill2">(${avail[b]})</span></label><input class="i" type="number" min="0" max="${max}" data-n="${b}" value="${W.counts[t][b]}"></div>`).join('')}</div>
+      <p class="small dim" style="margin-top:6px">Total ${total()} · up to ${max} questions per sheet${K.pro() ? '' : ' on the Free plan (90 with Teach Pro)'}.</p>
+      ${t === 'adv' ? `<label class="f">Difficulty mix</label>
+      <div class="seg" id="diff">${[['easy', 'Gentle'], ['balanced', 'Balanced'], ['hard', 'Tough'], ['any', 'Any']].map(([k, v]) => `<button data-v="${k}" class="${W.diff === k ? 'on' : ''}">${v}</button>`).join('')}</div>` : ''}
+      <label class="f">Order inside each section</label>
+      <div class="seg" id="ord">${[['easy', 'Easy → hard'], ['chapter', 'By chapter'], ['mixed', 'Mixed']].map(([k, v]) => `<button data-v="${k}" class="${W.order === k ? 'on' : ''}">${v}</button>`).join('')}</div>
+      <label class="cb" style="margin-top:10px"><input type="checkbox" id="avoid" ${W.avoid ? 'checked' : ''}>Skip questions already used in my saved sheets</label>
+    </div>
+    <div class="actions"><button class="btn" id="go">Make the worksheet</button>${W.items.length ? '<button class="btn ghost" id="back">Back to my sheet</button>' : ''}</div>`;
+
+  const $ = s => app.querySelector(s);
+  app.querySelectorAll('#src button').forEach(b => b.onclick = () => {
+    const was = track(); W.source = b.dataset.v;
+    if (track() !== was) { W.chapters = []; [W.yFrom, W.yTo] = track() === 'main' ? [2019, 2026] : [2006, 2026]; }
+    form();
+  });
+  app.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { const id = +b.dataset.c; W.chapters = W.chapters.includes(id) ? W.chapters.filter(x => x !== id) : [...W.chapters, id]; form(); });
+  app.querySelectorAll('[data-n]').forEach(i => i.onchange = () => { W.counts[t][i.dataset.n] = Math.max(0, Math.min(max, +i.value || 0)); form(); });
+  if ($('#yf')) { $('#yf').onchange = e => { W.yFrom = +e.target.value || yrs[0]; form(); }; $('#yt').onchange = e => { W.yTo = +e.target.value || yrs[1]; form(); }; }
+  app.querySelectorAll('#diff button').forEach(b => b.onclick = () => { W.diff = b.dataset.v; form(); });
+  app.querySelectorAll('#ord button').forEach(b => b.onclick = () => { W.order = b.dataset.v; form(); });
+  $('#avoid').onchange = e => { W.avoid = e.target.checked; form(); };
+  $('#go').onclick = () => {
+    if (!total()) return toast('Choose at least one question.');
+    if (total() > max) return toast(K.pro() ? `Up to ${PRO_MAX} questions per sheet.` : `Free plan: up to ${FREE_MAX} questions per sheet. Teach Pro (coming soon) allows ${PRO_MAX}.`);
+    build();
+  };
+  if ($('#back')) $('#back').onclick = sheet;
+  wireSaved();
+}
+
+/* ---------------- choosing the questions ---------------- */
+function pick(cands, n, taken) {
+  const out = [], perCh = {};
+  const r = Math.random;
+  let left = K.shuffle(cands.filter(q => !taken.has(q.id)), r);
+  const mix = DIFF[W.diff];
+  const want = mix ? mix.map(x => x * n) : null;
+  const got = [0, 0, 0];
+  while (out.length < n && left.length) {
+    let d = -1;
+    if (want) { let best = -1e9; for (let i = 0; i < 3; i++) { const need = want[i] - got[i]; if (need > best && left.some(q => diffIx(q) === i)) { best = need; d = i; } } }
+    const c = d < 0 ? left : left.filter(q => diffIx(q) === d);
+    const low = Math.min(...c.map(q => perCh[q.chapter_id] || 0));
+    const q = c.find(q => (perCh[q.chapter_id] || 0) === low);
+    out.push(q); taken.add(q.id); got[diffIx(q)]++; perCh[q.chapter_id] = (perCh[q.chapter_id] || 0) + 1;
+    left = left.filter(x => x !== q);
+  }
+  return out;
+}
+function arrange(list) {
+  if (W.order === 'easy') return list.slice().sort((a, b) => diffIx(a) - diffIx(b) || chOrder(a.chapter_id) - chOrder(b.chapter_id));
+  if (W.order === 'chapter') return list.slice().sort((a, b) => chOrder(a.chapter_id) - chOrder(b.chapter_id) || diffIx(a) - diffIx(b) || (a.year || 0) - (b.year || 0));
+  return list;
+}
+function build() {
+  const p = pool(), used = W.avoid ? usedIds() : new Set(), taken = new Set(used);
+  const items = [], short = [];
+  for (const [b, name] of BUCKETS[track()]) {
+    const n = +W.counts[track()][b] || 0; if (!n) continue;
+    const got = arrange(pick(p.filter(q => bucketOf(q) === b), n, taken));
+    if (got.length < n) short.push(`${name}: ${got.length} of ${n}`);
+    items.push(...got.map(q => q.id));
+  }
+  if (!items.length) return toast('No questions match. Widen the chapters or years.');
+  W.items = items; W.id = W.id || null;
+  if (!W.title) W.title = defaultTitle();
+  if (short.length) toast('Not enough questions for ' + short.join(', '));
+  sheet();
+}
+function defaultTitle() {
+  const names = W.chapters.map(chName);
+  const what = names.length === 0 ? 'Mixed chapters' : names.length <= 2 ? names.join(' & ') : `${names[0]} + ${names.length - 1} more`;
+  return `${what} · ${track() === 'main' ? 'JEE Main' : 'JEE Advanced'} practice`;
+}
+
+/* ---------------- step 2: the sheet ---------------- */
+async function ensureFull(ids) {
+  const need = ids.filter(id => !FULL[id]);
+  if (!need.length) return;
+  const rows = await K.fetchIn('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,stem_html,options,answer_key,difficulty,source_ref', 'id', need);
+  rows.forEach(r => FULL[r.id] = r);
+}
+const qOf = id => FULL[id] || META.find(q => q.id === id);
+function sections(ids) {
+  return BUCKETS[track()].map(([b, name, plus, minus]) => ({ b, name, plus, minus, ids: ids.filter(id => bucketOf(qOf(id)) === b) })).filter(s => s.ids.length);
+}
+function marksOf(s) { return s.b === 'match' && s.ids.some(id => K.kind(qOf(id)) === 'grid') ? null : s.plus; }
+function maxMarks(ids) {
+  return sections(ids).reduce((m, s) => m + s.ids.reduce((a, id) => { const q = qOf(id); return a + (K.kind(q) === 'grid' ? 2 * (q.options.rows || []).length : s.plus); }, 0), 0);
+}
+function autoMinutes() { const n = W.items.length; return Math.max(10, Math.ceil(n * (track() === 'main' ? 2.4 : 3) / 5) * 5); }
+
+async function sheet() {
+  app.innerHTML = '<div class="spin">Getting the questions…</div>';
+  try { await ensureFull(W.items); } catch (e) { app.innerHTML = `<div class="lock"><h3>Couldn’t load the questions</h3><p>${esc(e.message)}</p></div>`; return; }
+  W.items = W.items.filter(id => FULL[id]);
+  if (!W.minutes) W.minutes = autoMinutes();
+  let n = 0;
+  const secs = sections(W.items);
+  const proTag = K.pro() ? '' : '<span class="lockt">Pro</span>';
+  app.innerHTML = `<div class="crumbs"><a href="#" id="edit">Worksheet Builder</a> ›</div>
+    <h1><small>${esc(SOURCES[W.source])}</small><input class="i" id="title" value="${esc(W.title)}" style="font-size:20px;font-weight:700"></h1>
+    <div class="statline"><span><b>${W.items.length}</b> questions</span><span>Max marks <b>${W.marking ? maxMarks(W.items) : '—'}</b></span><span>Time <b>${W.minutes} min</b></span>
+      <span>${DNAME.map((d, i) => `${d} <b>${W.items.filter(id => diffIx(qOf(id)) === i).length}</b>`).join(' · ')}</span></div>
+    <div class="box">
+      <h3>Header and printing</h3>
+      <div class="row"><div><label class="f">Institute / school</label><input class="i" id="inst" value="${esc(W.inst)}" placeholder="e.g. Bright Future Academy"></div>
+        <div><label class="f">Teacher</label><input class="i" id="teacher" value="${esc(W.teacher)}" placeholder="Your name"></div></div>
+      <div class="row3"><div><label class="f">Batch / class</label><input class="i" id="batch" value="${esc(W.batch)}" placeholder="XII-A JEE"></div>
+        <div><label class="f">Date</label><input class="i" id="date" type="date" value="${W.date || new Date().toISOString().slice(0, 10)}"></div>
+        <div><label class="f">Time (minutes)</label><input class="i" id="min" type="number" min="5" value="${W.minutes}"></div></div>
+      <label class="cb" style="margin-top:10px"><input type="checkbox" id="marking" ${W.marking ? 'checked' : ''}>Show marks and the marking scheme (${track() === 'main' ? '+4 / −1' : 'JEE Advanced marking'})</label>
+      <label class="cb"><input type="checkbox" id="key" ${W.key ? 'checked' : ''}>Add an answer key page</label>
+      <label class="cb"><input type="checkbox" id="cols" ${W.cols ? 'checked' : ''}>Print in two columns (saves paper)</label>
+      <label class="cb"><input type="checkbox" id="sols" ${W.sols && K.pro() ? 'checked' : ''} ${K.pro() ? '' : 'disabled'}>Add a solutions booklet (key idea + full solution, where written)${proTag}</label>
+      <label class="f">Versions</label>
+      <div class="seg" id="sets">${[1, 2, 3].map(k => `<button data-v="${k}" class="${W.sets === k ? 'on' : ''}">${k === 1 ? 'One version' : k === 2 ? 'Sets A, B' : 'Sets A, B, C'}${k > 1 && !K.pro() ? ' 🔒' : ''}</button>`).join('')}</div>
+      <p class="small dim" style="margin-top:4px">Sets B and C have the same questions in a different order inside each section, each with its own key.</p>
+    </div>
+    <div class="actions"><button class="btn" id="print">Print / save as PDF</button><button class="btn ghost" id="save">${W.id ? 'Save changes' : 'Save this sheet'}</button>
+      <button class="btn ghost" id="again">Choose again</button><button class="btn ghost" id="edit2">Change settings</button></div>
+    ${secs.map(s => `<div class="sec-h"><h3>${s.name}</h3><span>${s.ids.length} question${s.ids.length > 1 ? 's' : ''}${W.marking ? ` · +${s.plus}${s.minus ? ' / ' + s.minus : ''}${s.b === 'mc' ? ' (partial marks)' : ''}` : ''}</span></div>
+      ${s.ids.map(id => { const q = qOf(id); n++; return `<article class="q" data-id="${esc(id)}"><header><span><span class="qn">Q${n}</span>${esc(K.srcText(q))} · ${esc(chName(q.chapter_id))}</span><span>${esc(q.difficulty || '')}</span></header>
+        ${K.body(q)}
+        <details class="ha"><summary>Answer</summary><div class="ans"><span>Key</span>${esc(K.keyText(q))}</div></details>
+        <div class="qtools" style="margin-top:8px"><button data-a="up">↑</button><button data-a="down">↓</button><button data-a="swap">Swap for another</button><button data-a="del">Remove</button></div></article>`; }).join('')}`).join('')}
+    <div class="actions"><button class="btn ghost" id="more">+ Add one more question</button></div>`;
+  typeset(app);
+  const $ = s => app.querySelector(s);
+  const keep = () => {
+    W.title = $('#title').value.trim() || defaultTitle(); W.inst = $('#inst').value.trim(); W.teacher = $('#teacher').value.trim(); W.batch = $('#batch').value.trim();
+    W.date = $('#date').value; W.minutes = Math.max(5, +$('#min').value || W.minutes);
+    W.marking = $('#marking').checked; W.key = $('#key').checked; W.cols = $('#cols').checked; W.sols = K.pro() && $('#sols').checked;
+  };
+  app.querySelectorAll('input').forEach(i => i.addEventListener('change', keep));
+  $('#edit').onclick = $('#edit2').onclick = e => { e.preventDefault(); keep(); form(); };
+  $('#again').onclick = () => { keep(); build(); };
+  app.querySelectorAll('#sets button').forEach(b => b.onclick = () => {
+    if (+b.dataset.v > 1 && !K.pro()) return toast('Sets A, B, C come with Teach Pro (coming soon).');
+    keep(); W.sets = +b.dataset.v; app.querySelectorAll('#sets button').forEach(x => x.classList.toggle('on', x === b));
+  });
+  app.querySelectorAll('.q [data-a]').forEach(b => b.onclick = () => { keep(); act(b.closest('.q').dataset.id, b.dataset.a); });
+  $('#more').onclick = () => { keep(); more(); };
+  $('#save').onclick = async () => { keep(); await save(); };
+  $('#print').onclick = async () => { keep(); savePrefs(); await printSheet(); };
+}
+
+async function act(id, a) {
+  const i = W.items.indexOf(id), q = qOf(id);
+  const same = W.items.map((x, j) => j).filter(j => bucketOf(qOf(W.items[j])) === bucketOf(q));
+  if (a === 'del') W.items.splice(i, 1);
+  if (a === 'up' || a === 'down') {
+    const k = same.indexOf(i), j = same[a === 'up' ? k - 1 : k + 1];
+    if (j === undefined) return;
+    [W.items[i], W.items[j]] = [W.items[j], W.items[i]];
+  }
+  if (a === 'swap') {
+    const taken = new Set([...W.items, ...(W.avoid ? usedIds() : [])]);
+    let c = pool().filter(x => bucketOf(x) === bucketOf(q) && !taken.has(x.id));
+    const sameD = c.filter(x => diffIx(x) === diffIx(q)), sameCh = sameD.filter(x => x.chapter_id === q.chapter_id);
+    c = sameCh.length ? sameCh : sameD.length ? sameD : c;
+    if (!c.length) return toast('No other question of this type matches your settings.');
+    W.items[i] = c[Math.floor(Math.random() * c.length)].id;
+  }
+  if (!W.items.length) return form();
+  await sheet();
+  if (a !== 'del') { const el = app.querySelector(`.q[data-id="${CSS.escape(W.items[a === 'swap' ? i : W.items.indexOf(id)])}"]`); if (el) el.scrollIntoView({ block: 'center' }); }
+}
+async function more() {
+  if (W.items.length >= (K.pro() ? PRO_MAX : FREE_MAX)) return toast(K.pro() ? `Up to ${PRO_MAX} questions per sheet.` : `Free plan: up to ${FREE_MAX} questions per sheet.`);
+  const taken = new Set([...W.items, ...(W.avoid ? usedIds() : [])]);
+  const c = pool().filter(x => !taken.has(x.id));
+  if (!c.length) return toast('No more questions match your settings.');
+  const counts = {}; W.items.forEach(id => { const b = bucketOf(qOf(id)); counts[b] = (counts[b] || 0) + 1; });
+  const b = Object.keys(counts).sort((x, y) => counts[x] - counts[y]).find(b => c.some(q => bucketOf(q) === b)) || bucketOf(c[0]);
+  const list = c.filter(q => bucketOf(q) === b);
+  W.items.push(list[Math.floor(Math.random() * list.length)].id);
+  await sheet();
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+/* ---------------- saved sheets ---------------- */
+function savedBox() {
+  if (!SAVED.length) return '';
+  return `<div class="box saved"><h3>My saved sheets</h3><ul>${SAVED.slice().sort((a, b) => (b.at || '').localeCompare(a.at || '')).map(s => `<li><span>${esc(s.title)}<br><small class="dim">${(s.items || []).length} questions · ${new Date(s.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</small></span>
+    <span class="qtools"><button data-open="${esc(s.id)}">Open</button><button data-rm="${esc(s.id)}">Delete</button></span></li>`).join('')}</ul>
+    ${K.pro() ? '' : `<p class="small dim">Free plan: up to ${FREE_SAVES} saved sheets.</p>`}</div>`;
+}
+function wireSaved() {
+  app.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { const s = SAVED.find(x => x.id === b.dataset.open); if (!s) return; Object.assign(W, JSON.parse(JSON.stringify(s.cfg || {})), { id: s.id, title: s.title, items: s.items.slice() }); sheet(); });
+  app.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => {
+    if (!confirm('Delete this saved sheet?')) return;
+    SAVED = SAVED.filter(x => x.id !== b.dataset.rm); if (W.id === b.dataset.rm) W.id = null;
+    toast(await K.kvSet('teach_worksheets', SAVED) ? 'Deleted.' : 'Deleted on this device; couldn’t reach your account.'); form();
+  });
+}
+async function save() {
+  if (!W.id && !K.pro() && SAVED.length >= FREE_SAVES) return toast(`Free plan: up to ${FREE_SAVES} saved sheets. Delete one, or use Teach Pro (coming soon).`);
+  const cfg = { source: W.source, chapters: W.chapters, yFrom: W.yFrom, yTo: W.yTo, diff: W.diff, order: W.order, avoid: W.avoid, counts: W.counts, marking: W.marking,
+    sets: W.sets, key: W.key, sols: W.sols, cols: W.cols, minutes: W.minutes, inst: W.inst, teacher: W.teacher, batch: W.batch, date: W.date };
+  const rec = { id: W.id || 'ws' + Date.now().toString(36), title: W.title, at: new Date().toISOString(), items: W.items.slice(), cfg };
+  SAVED = SAVED.filter(s => s.id !== rec.id).concat(rec); W.id = rec.id;
+  savePrefs();
+  toast(await K.kvSet('teach_worksheets', SAVED) ? 'Saved to your account.' : 'Saved on this device only (couldn’t reach your account).');
+  const b = app.querySelector('#save'); if (b) b.textContent = 'Save changes';
+}
+function savePrefs() { PREFS = { inst: W.inst, teacher: W.teacher, batch: W.batch }; K.kvSet('teach_sheet_prefs', PREFS); }
+
+/* ---------------- printing ---------------- */
+function setOrder(k) {
+  if (k === 0) return W.items.slice();
+  const r = K.rng((W.id || W.title) + '|set' + k);
+  return sections(W.items).flatMap(s => K.shuffle(s.ids, r));
+}
+function instructions() {
+  if (!W.marking) return '';
+  const t = track(), secs = sections(W.items);
+  const line = s => {
+    if (t === 'main') return `<li><b>${s.name}:</b> +4 for a correct answer, −1 for a wrong one, 0 if left blank.</li>`;
+    if (s.b === 'sc') return `<li><b>Single correct:</b> only one option is correct. +3 if correct, −1 if wrong, 0 if left blank.</li>`;
+    if (s.b === 'mc') return `<li><b>Multiple correct:</b> one or more options are correct. +4 if all correct options and no wrong option are chosen; +1 for each correct option chosen when no wrong option is chosen; −2 if any wrong option is chosen.</li>`;
+    if (s.b === 'num') return `<li><b>Numerical:</b> the answer is a number. +4 if correct, 0 otherwise.</li>`;
+    return `<li><b>Matching:</b> +3 if correct, −1 if wrong${s.ids.some(id => K.kind(qOf(id)) === 'grid') ? '; tick-grid questions: +2 for each fully correct row' : ''}.</li>`;
+  };
+  return `<div class="ins"><b>Instructions</b><ul>${secs.map(line).join('')}</ul></div>`;
+}
+function dateTxt() { try { return new Date(W.date + 'T00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return ''; } }
+function setHtml(k) {
+  const order = setOrder(k), label = W.sets > 1 ? ` · Set ${'ABC'[k]}` : '';
+  let n = 0;
+  const secs = BUCKETS[track()].map(([b, name]) => ({ name, ids: order.filter(id => bucketOf(qOf(id)) === b) })).filter(s => s.ids.length);
+  return `<section class="set"><div class="hd">${W.inst ? `<div class="inst">${esc(W.inst)}</div>` : ''}<div class="tt">${esc(W.title)}${label}</div>
+      <div class="meta"><span>${esc(W.batch)}${W.batch && W.date ? ' · ' : ''}${dateTxt()}</span><span>Time: ${W.minutes} min</span>${W.marking ? `<span>Max marks: ${maxMarks(W.items)}</span>` : ''}</div></div>
+    <div class="lines"><span>Name:</span><span>Roll no.:</span>${W.marking ? '<span>Marks:</span>' : ''}</div>
+    ${instructions()}
+    ${secs.map(s => `<h4>${s.name}</h4><div class="${W.cols ? 'cols' : ''}">${s.ids.map(id => { const q = qOf(id); n++; return `<div class="pq"><span class="n">${n}.</span><div class="b">${K.body(q)}</div></div>`; }).join('')}</div>`).join('')}
+  </section>`;
+}
+function keyHtml() {
+  const orders = Array.from({ length: W.sets }, (_, k) => setOrder(k));
+  const rows = W.items.map((_, i) => `<tr><td>${i + 1}</td>${orders.map(o => `<td>${esc(K.keyText(qOf(o[i])))}</td>`).join('')}</tr>`).join('');
+  return `<section class="set"><div class="hd"><div class="tt">Answer key · ${esc(W.title)}</div></div>
+    <table class="key"><tr><th>Q</th>${orders.map((_, k) => `<th>${W.sets > 1 ? 'Set ' + 'ABC'[k] : 'Answer'}</th>`).join('')}</tr>${rows}</table></section>`;
+}
+async function solsHtml() {
+  const sol = Object.fromEntries((await K.fetchIn('solutions', 'question_id,key_idea,full_html,alt_html', 'question_id', W.items)).map(s => [s.question_id, s]));
+  return `<section class="set"><div class="hd"><div class="tt">Solutions · ${esc(W.title)}${W.sets > 1 ? ' · in Set A order' : ''}</div></div>
+    ${W.items.map((id, i) => { const s = sol[id], q = qOf(id); return `<div class="sol"><b>${i + 1}.</b> Answer: ${esc(K.keyText(q))}
+      ${s ? `${s.key_idea ? `<div class="lb">Key idea</div><div>${s.key_idea}</div>` : ''}${s.full_html ? `<div class="lb">Solution</div><div>${s.full_html}</div>` : ''}${s.alt_html ? `<div class="lb">Another way</div><div>${s.alt_html}</div>` : ''}` : '<div class="small2"><i>No written solution for this question yet.</i></div>'}</div>`; }).join('')}</section>`;
+}
+async function printSheet() {
+  const b = app.querySelector('#print'); b.disabled = true; b.textContent = 'Preparing…';
+  try {
+    const el = document.getElementById('sheet');
+    let h = '';
+    for (let k = 0; k < W.sets; k++) h += setHtml(k);
+    if (W.key) h += keyHtml();
+    if (W.sols && K.pro()) h += await solsHtml();
+    const foot = K.pro() ? `${esc(W.inst || W.teacher || '')}${W.inst && W.teacher ? ' · ' + esc(W.teacher) : ''}` : 'Made with Mathemission Teach · teach.mathemission.in';
+    el.innerHTML = h + `<div class="foot">${foot}</div>`;
+    el.style.display = 'block'; el.style.position = 'absolute'; el.style.left = '-10000px'; el.style.width = '180mm';   // typeset off-screen
+    await typeset(el);
+    el.removeAttribute('style');
+    document.title = W.title;
+    window.print();
+    document.title = 'Worksheet Builder · Mathemission Teach';
+  } catch (e) { toast('Couldn’t prepare the sheet: ' + e.message); }
+  b.disabled = false; b.textContent = 'Print / save as PDF';
+}
+})();
+</script>
+</body>
+</html>

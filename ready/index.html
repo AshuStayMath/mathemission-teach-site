@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#060b1f">
+<meta name="robots" content="noindex">
+<title>Ready Lectures · Mathemission Teach</title>
+<link rel="icon" href="/favicon-64.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['\\[', '\\]'], ['$$', '$$']],
+    processEnvironments: true,
+    macros: {
+      opop: ['\\left(#1\\right)', 1], clcl: ['\\left[#1\\right]', 1], clop: ['\\left[#1\\right)', 1], opcl: ['\\left(#1\\right]', 1], magn: ['\\left|#1\\right|', 1],
+      set: ['\\mathbb{#1}', 1], piby: ['\\frac{\\pi}{#1}', 1], powset: ['\\operatorname{Pow}(#1)', 1],
+      Sum: ['\\sum_{#1}^{#2}{#3}', 3]
+    }
+  },
+  options: { skipHtmlTags: ['script', 'style', 'textarea'] },
+  startup: { typeset: false }
+};
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg-full.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+:root{--bg:#060b1f;--panel:#0c1533;--panel2:#111d44;--line:#1f2f66;--blue:#2f7bff;--cyan:#22d3ee;--gold:#f5c542;--text:#eaf1ff;--muted:#93a4cf;--green:#22c55e;--red:#ef4444}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;font:15px/1.6 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{background:radial-gradient(800px 400px at 85% -10%,#22d3ee1f,transparent 60%),radial-gradient(700px 400px at -10% 10%,#2f7bff24,transparent 60%),var(--bg);min-height:100vh}
+a{color:var(--cyan)}button{font:inherit;cursor:pointer;color:inherit;border:none;background:none}
+.hidden{display:none!important}
+.top{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);background:#060b1fe0;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;text-decoration:none;color:var(--text)}
+.logo{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;color:#fff;font-weight:800;background:linear-gradient(135deg,var(--blue),var(--cyan));box-shadow:0 0 18px #22d3ee73}
+.brand small{display:block;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.4px}
+.plan{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.plan.pro{color:var(--gold);border-color:#f5c54277}
+.wrap{max-width:920px;margin:0 auto;padding:16px 14px 60px}
+.crumbs{font-size:13px;color:var(--muted);margin-bottom:8px}.crumbs a{text-decoration:none}
+h1{font-size:24px;line-height:1.25;margin:4px 0}h1 small,h2 small{display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan)}
+h2{font-size:21px;line-height:1.3;margin:6px 0 2px}
+.lead{color:var(--muted);margin:6px 0 14px}
+.pace{border-left:3px solid var(--gold);background:#f5c54212;padding:8px 12px;border-radius:6px;margin:10px 0 16px;font-size:14px}
+.grid{display:grid;gap:10px;grid-template-columns:1fr}@media(min-width:720px){.grid.two{grid-template-columns:1fr 1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;text-decoration:none;color:var(--text);display:block;text-align:left;width:100%}
+a.card:hover,button.card:hover{border-color:var(--cyan);box-shadow:0 0 16px #22d3ee33}
+.card h3{font-size:17px;margin-bottom:2px}.card .meta{font-size:13px;color:var(--muted)}
+.lrow{display:flex;gap:12px;align-items:flex-start}
+.num{flex:none;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-weight:800;background:var(--panel2);border:1px solid var(--line);color:var(--cyan)}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle}
+.t-free{background:#22c55e1f;color:var(--green);border:1px solid #22c55e66}
+.t-pro{background:#f5c5421f;color:var(--gold);border:1px solid #f5c54277}
+.t-draft{background:#ef44441f;color:#ff8a8a;border:1px solid #ef444466}
+.t-pyq{background:#22d3ee1a;color:var(--cyan);border:1px solid #22d3ee66}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:10px;overflow-x:auto}
+.box h3{font-size:14px;color:var(--cyan);margin:2px 0 6px}.box ul,.box ol{padding-left:20px}.small{font-size:13.5px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.btn{padding:9px 14px;border-radius:10px;background:var(--blue);color:#fff;font-weight:600;font-size:14px;box-shadow:0 0 14px #2f7bff55}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text);box-shadow:none}
+.part>h3{font-size:18px;margin:22px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line)}.part>h3 small{color:var(--muted);font-weight:400;font-size:13px}
+details.theory{border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:10px 0;background:var(--panel)}
+details.theory>summary{font-size:14px}
+figure.pg{position:relative;margin:10px 0 0;min-height:120px;border-radius:6px;overflow:hidden;background:#fff}
+figure.pg img,figure.pg canvas{display:block;width:100%;height:auto;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;pointer-events:none}
+figure.pg .wm{position:absolute;inset:0;pointer-events:none;display:flex;flex-wrap:wrap;align-content:space-around;justify-content:space-around;overflow:hidden;opacity:.13;color:#0b1d52;font-size:13px;font-weight:700;transform:rotate(-24deg) scale(1.3)}
+figure.pg .wm span{padding:22px 18px;white-space:nowrap}
+figure.pg figcaption{position:absolute;right:6px;bottom:4px;font-size:11px;color:#556}
+figure.pg .ph{padding:40px 10px;text-align:center;color:#667;font-size:13px}
+.q{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0;overflow:hidden}
+.q header{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
+.lab{color:var(--cyan);font-weight:600;letter-spacing:.03em}.q h4{font-size:16px;margin:4px 0 0}
+.src{font-size:12px;color:var(--muted);margin-bottom:6px}
+.stem{overflow-x:auto}.stem ol,.stem ul{padding-left:22px;margin:4px 0}ol.opts{list-style:upper-alpha;padding-left:26px}
+mjx-container{max-width:100%;overflow-x:auto;overflow-y:hidden}mjx-container[display="true"]{display:block;margin:.5em 0!important}
+.fbox{display:inline-block;border:1px solid var(--cyan);border-radius:8px;padding:2px 10px;margin:4px 0;box-shadow:0 0 10px #22d3ee33}
+.ftag{background:var(--panel2);border-radius:8px;padding:6px 10px;margin:6px 0;font-size:13.5px}.fig{color:var(--muted);font-size:12px;font-style:italic}
+.tw{overflow-x:auto}table{border-collapse:collapse;margin:6px 0;font-size:13.5px}td{border:1px solid var(--line);padding:4px 8px;vertical-align:top;min-width:110px}
+details.ha{margin-top:8px;border-top:1px solid var(--line);padding-top:6px}
+summary{cursor:pointer;color:var(--cyan);font-weight:600;font-size:13.5px}
+.hint,.ans,.note{margin:8px 0;padding:8px 10px;border-radius:8px;background:var(--panel2);overflow-x:auto}
+.hint span,.ans span,.note span{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.ans{border:1px solid #22d3ee55}.ans span{color:var(--cyan)}.note{background:#f5c54214;border:1px solid #f5c54255}.note span{color:var(--gold)}
+.lock{text-align:center;padding:26px 16px;border:1px solid #f5c54255;background:linear-gradient(180deg,#f5c5420d,transparent);border-radius:14px;margin:14px 0}
+.lock h3{color:var(--gold);font-size:18px;margin-bottom:6px}.lock p{color:var(--muted);margin:4px 0 12px}
+.dim{color:var(--muted)}.warn{color:var(--gold);font-size:13.5px;margin:6px 0}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--cyan);padding:9px 16px;border-radius:10px;font-size:14px;z-index:20;box-shadow:0 0 18px #22d3ee44}
+.spin{padding:40px 0;text-align:center;color:var(--muted)}
+footer{margin-top:40px;text-align:center;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:14px}
+.printmark{display:none}.dev{border:1px solid #f5c54255;border-radius:14px;padding:12px 14px;margin:12px 0;background:#f5c5420d}.dev h3{color:var(--gold);font-size:16px;margin-bottom:4px}.dev li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);list-style:none}.dev ul{padding:0;margin:8px 0 0}
+@media print{.top,.actions,footer,.dev{display:none}figure.pg{display:none}.printmark{display:block;position:fixed;left:0;right:0;bottom:0;text-align:center;font-size:10px;color:#555;border-top:1px solid #ccc;padding-top:3px;background:#fff}body{padding-bottom:22px}}
+
+/* mature look (9 Nov 2026) */
+:root{--panel:#0d1630;--panel2:#121d3d;--line:#1d2a52}
+body{background:linear-gradient(180deg,#0a1230 0,#060b1f 340px)!important}
+.btn{box-shadow:none;border-radius:10px}.btn:not(.ghost){background:#2f6fe4}
+.card,.box,.q,details.theory,.lock,.dev{border-radius:12px}
+a.card:hover,button.card:hover{border-color:#3a5aa8;box-shadow:none}
+.fbox{box-shadow:none;border-color:#2c3f78}
+.toast{box-shadow:0 10px 30px #0008;border-color:#2c3f78}
+.lock{background:var(--panel);border-color:var(--line)}.lock h3{color:#c9d6f5}
+.logo,.brand .logo{box-shadow:none}
+h1,h2{letter-spacing:-.015em}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><span class="logo">M</span><span>Mathemission Teach<small>Ready Lectures</small></span></a>
+  <span id="plan" class="plan hidden"></span>
+</header>
+<main class="wrap" id="app"><div class="spin">Loading…</div></main>
+<footer class="wrap">AK · Stay Mathactive · <a href="https://mathemission.in">mathemission.in</a></footer>
+<div id="toast" class="toast hidden"></div>
+<div id="printmark" class="printmark"></div>
+
+<script>
+(() => {
+'use strict';
+const SB_URL = 'https://utcydlppkmwwwrkqwhzk.supabase.co';
+const SB_KEY = 'sb_publishable_SMYHoFtw8otE40zU9MU7rw_am0Czdrm';
+const sb = window.supabase.createClient(SB_URL, SB_KEY);   // default storage key: shares the Teach sign-in on this site
+const app = document.getElementById('app');
+const PACE = 'Each lecture is planned for 2 hours and comes split as <b>A</b> and <b>B</b> (about 60 min each). Split it differently or speed up to suit your class’s pace and time.';
+
+const S = { user: null, plan: 'free', admin: false, chapters: [], lectures: [], cache: {}, device: { ok: true } };
+const TODAY = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const mathy = s => (/\$/.test(s || '') ? s : esc(s));          // titles may carry LaTeX
+const toast = msg => { const t = document.getElementById('toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add('hidden'), 2200); };
+const typeset = async el => { for (let i = 0; i < 50 && !(window.MathJax && MathJax.typesetPromise); i++) await new Promise(r => setTimeout(r, 100)); try { await MathJax.typesetPromise([el]); } catch (e) { console.warn(e); } };
+const canRead = l => S.admin || (l.status === 'published' && (l.is_free || (S.plan === 'pro' && S.device.ok)));
+const deviceLabel = () => { const u = navigator.userAgent; const b = /Edg\//.test(u) ? 'Edge' : /OPR\//.test(u) ? 'Opera' : /SamsungBrowser/.test(u) ? 'Samsung Internet' : /Firefox\//.test(u) ? 'Firefox' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : 'Browser';
+  const o = /iPhone/.test(u) ? 'iPhone' : /iPad/.test(u) ? 'iPad' : /Android/.test(u) ? 'Android' : /Windows/.test(u) ? 'Windows' : /Mac OS X/.test(u) ? 'Mac' : /Linux/.test(u) ? 'Linux' : 'device'; return `${b} on ${o}`; };
+const isPyq = l => !l.theory_min && l.n === Math.max(...S.lectures.filter(x => x.chapter_slug === l.chapter_slug).map(x => x.n));
+const pageFile = (slug, n) => `${slug}/${slug[0]}-${String(n).padStart(2, '0')}.jpg`;
+
+async function boot() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    app.innerHTML = `<h1><small>Mathemission Teach</small>Mathemission Ready Lectures</h1>
+      <p class="lead">Ready-to-teach JEE Advanced lectures: theory pages, E-questions with hints and answers, and a PYQ lecture for each chapter.</p>
+      <div class="lock"><h3>Sign in first</h3><p>Open Mathemission Teach, sign in, then come back here.</p><a class="btn" href="/">Open Teach</a></div>`;
+    return;
+  }
+  S.user = session.user;
+  const [plan, admin] = await Promise.all([
+    sb.rpc('my_teach_plan').then(r => r.data, () => null),
+    sb.rpc('is_admin').then(r => r.data === true, () => false)
+  ]);
+  S.plan = plan === 'pro' ? 'pro' : 'free';
+  S.admin = !!admin;
+  const pl = document.getElementById('plan');
+  pl.textContent = S.admin ? 'Admin' : (S.plan === 'pro' ? 'Teach Pro' : 'Free plan');
+  pl.className = 'plan' + (S.plan === 'pro' || S.admin ? ' pro' : '');
+  document.getElementById('printmark').textContent = `Prepared for ${S.user.email} · Mathemission Teach · www.mathemission.in · not for distribution`;
+  if (S.plan === 'pro' && !S.admin) await checkDevice();
+
+  const [c, l] = await Promise.all([
+    sb.from('ready_chapters').select('*').order('syllabus_order'),
+    sb.from('ready_lectures').select('id,chapter_slug,n,title,topics,theory_min,total_min,split_at,theory_pages,all_pages,formulas,concepts,is_free,status').order('n')
+  ]);
+  if (c.error || l.error) { app.innerHTML = `<div class="lock"><h3>Couldn’t load Ready Lectures</h3><p>${esc((c.error || l.error).message)}</p></div>`; return; }
+  S.chapters = c.data; S.lectures = l.data;
+  if (!S.admin && S.lectures.some(x => x.status === 'draft')) S.admin = true;   // only admins can see drafts (RLS)
+  window.addEventListener('hashchange', route);
+  route();
+}
+
+async function checkDevice() {
+  const { data, error } = await sb.rpc('teach_register_device', { p_label: deviceLabel() });
+  if (error) { S.device = { ok: true }; return; }          // device limit not set up on the server yet
+  S.device = data || { ok: true };
+  if (!S.device.ok && S.device.reason === 'signed_out') { await sb.auth.signOut(); location.reload(); }
+}
+function deviceBox() {
+  if (S.device.ok || S.device.reason !== 'limit') return '';
+  const when = t => new Date(t).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  const rows = (S.device.devices || []).map(d => `<li><span>${esc(d.label || 'Device')}<br><small class="dim">last used ${when(d.last_seen)}</small></span><button class="btn ghost" data-drop="${esc(d.id)}">Sign out that device</button></li>`).join('');
+  return `<div class="dev"><h3>Teach Pro is open on ${S.device.max} other devices</h3>
+    <p class="small dim">One Teach Pro account works on up to ${S.device.max} devices. Sign out one of them to use Pro lectures here. Lecture 1 of every chapter still opens on this device.</p><ul>${rows}</ul></div>`;
+}
+function wireDevices(root) {
+  root.querySelectorAll('[data-drop]').forEach(b => b.onclick = async () => {
+    b.disabled = true; b.textContent = 'Signing out…';
+    const { data, error } = await sb.rpc('teach_drop_device', { p_session: b.dataset.drop });
+    if (error || !data) { toast('Couldn’t sign that device out. Try again.'); b.disabled = false; b.textContent = 'Sign out that device'; return; }
+    S.cache = {}; await checkDevice(); toast(S.device.ok ? 'Done. Teach Pro is now open on this device.' : 'Signed out.'); route();
+  });
+}
+
+function route() {
+  const [slug, n] = location.hash.replace(/^#\/?/, '').split('/');
+  window.scrollTo(0, 0);
+  if (!slug) return home();
+  const ch = S.chapters.find(c => c.slug === slug);
+  if (!ch) return home();
+  if (!n) return chapter(ch);
+  const lec = S.lectures.find(l => l.chapter_slug === slug && String(l.n) === n);
+  return lec ? lecture(ch, lec) : chapter(ch);
+}
+
+function home() {
+  const rows = S.chapters.map(c => {
+    const ls = S.lectures.filter(l => l.chapter_slug === c.slug);
+    const nl = ls.filter(l => !isPyq(l)).length;
+    return `<a class="card" href="#/${c.slug}"><h3>${esc(c.name)}${c.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : ''}</h3>
+      <div class="meta">${nl} lectures + PYQ lecture · JEE Advanced</div></a>`;
+  }).join('');
+  app.innerHTML = `<h1><small>Mathemission Teach</small>Mathemission Ready Lectures</h1>
+    <p class="lead">Ready-to-teach JEE Advanced lectures, for your own preparation: theory pages, the E-set for each lecture with hints and the answer, and a PYQ lecture for each chapter.</p>
+    ${deviceBox()}<div class="pace">${PACE}</div>
+    <div class="grid two">${rows || '<p class="dim">No chapters published yet.</p>'}</div>
+    <p class="dim small" style="margin-top:14px">Ready Lectures are JEE Advanced only. Want JEE Main practice as well? Add questions from the Practice Vault in <a href="/">Question Sets</a>.</p>
+    ${S.plan !== 'pro' && !S.admin ? '<p class="dim small">Free plan: Lecture 1 and the PYQ lecture of every chapter. The other lectures come with Teach Pro, coming soon.</p>' : ''}`;
+  wireDevices(app);
+}
+
+function chapter(ch) {
+  const ls = S.lectures.filter(l => l.chapter_slug === ch.slug);
+  const rows = ls.map(l => {
+    const pyq = isPyq(l);
+    const tag = l.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : '';
+    const acc = pyq ? '<span class="tag t-pyq">PYQs</span>' : (l.is_free ? '<span class="tag t-free">Free</span>' : '<span class="tag t-pro">Pro</span>');
+    const meta = pyq ? 'JEE Advanced past questions with full Deep Dive solutions' : `${(l.topics || []).slice(0, 3).map(esc).join(' · ')}`;
+    return `<a class="card" href="#/${ch.slug}/${l.n}"><div class="lrow"><span class="num">${canRead(l) ? 'L' + l.n : '🔒'}</span>
+      <div><h3>${mathy(l.title)}${acc}${tag}</h3><div class="meta">${meta}</div></div></div></a>`;
+  }).join('');
+  app.innerHTML = `<div class="crumbs"><a href="#/">Ready Lectures</a> ›</div>
+    <h1><small>JEE Advanced</small>${esc(ch.name)}${ch.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : ''}</h1>
+    ${deviceBox()}<div class="pace">${PACE}</div><div class="grid">${rows}</div>`;
+  wireDevices(app); typeset(app);
+}
+
+async function load(l) {
+  if (S.cache[l.id]) return S.cache[l.id];
+  const [it, pq] = await Promise.all([
+    sb.from('ready_items').select('id,position,label,title,source,minutes,stem_html,hints,answer_html,status,note_html').eq('lecture_id', l.id).neq('status', 'held').order('position'),
+    sb.from('ready_pyqs').select('position,tag,stem_html,question_id').eq('lecture_id', l.id).order('position')
+  ]);
+  if (it.error) throw it.error;
+  return (S.cache[l.id] = { items: it.data || [], pyqs: pq.data || [] });
+}
+
+function itemCard(e) {
+  const h = e.hints || [];
+  const fixed = e.status === 'fixed' && S.admin ? '<span class="tag t-free">Key fixed</span>' : '';
+  return `<article class="q"><header><span class="lab">${esc(e.label)}</span><span>${e.minutes ? e.minutes + ' min' : ''}</span></header>
+    <h4>${mathy(e.title)}${fixed}</h4><div class="src">${esc(e.source || '')}</div>
+    <div class="stem">${e.stem_html}</div>
+    <details class="ha"><summary>Hints &amp; answer</summary>
+      ${h[0] ? `<div class="hint"><span>Hint 1</span>${h[0]}</div>` : ''}
+      ${h[1] ? `<div class="hint"><span>Hint 2</span>${h[1]}</div>` : ''}
+      ${e.answer_html ? `<div class="ans"><span>Answer</span>${e.answer_html}</div>` : ''}
+      ${e.note_html ? `<div class="note"><span>Teacher note</span>${e.note_html}</div>` : ''}
+    </details></article>`;
+}
+
+function pages(ch, list, label) {
+  if (!list || !list.length) return '';
+  const figs = list.map(n => `<figure class="pg" data-src="${pageFile(ch.slug, n)}"><div class="ph">Page ${n}</div><figcaption>p. ${n}</figcaption></figure>`).join('');
+  return `<details class="theory"${label.open ? ' open' : ''}><summary>${label.text}</summary>${figs}</details>`;
+}
+
+const io = 'IntersectionObserver' in window ? new IntersectionObserver(ents => ents.forEach(en => { if (en.isIntersecting) { io.unobserve(en.target); loadPage(en.target); } }), { rootMargin: '400px' }) : null;
+async function loadPage(fig) {
+  const { data, error } = await sb.storage.from('ready-pages').download(fig.dataset.src);
+  const ph = fig.querySelector('.ph');
+  if (error || !data) { if (ph) ph.textContent = 'This page isn’t available yet.'; return; }
+  // draw the page with the teacher's email and the site baked into the picture (no image file or URL is left in the page)
+  let bmp;
+  try { bmp = await createImageBitmap(data); }
+  catch { const u = URL.createObjectURL(data); bmp = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = u; }).finally(() => URL.revokeObjectURL(u)); }
+  const W = bmp.width, H = bmp.height, c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.drawImage(bmp, 0, 0);
+  if (bmp.close) bmp.close();
+  const mark = `${S.user.email} · www.mathemission.in`, fs = Math.max(14, Math.round(W / 42));
+  g.save(); g.font = `700 ${fs}px system-ui, sans-serif`; g.fillStyle = 'rgba(11,29,82,.12)';
+  g.translate(W / 2, H / 2); g.rotate(-24 * Math.PI / 180);
+  const step = g.measureText(mark).width + fs * 3, R = Math.hypot(W, H);
+  for (let y = -R, row = 0; y < R; y += fs * 5, row++) for (let x = -R + (row % 2) * step / 2; x < R; x += step) g.fillText(mark, x, y);
+  g.restore();
+  g.font = `600 ${Math.round(fs * .7)}px system-ui, sans-serif`; g.fillStyle = 'rgba(11,29,82,.45)';
+  g.fillText(`Mathemission Teach · prepared for ${S.user.email} · www.mathemission.in`, fs * .6, H - fs * .6);
+  c.oncontextmenu = e => e.preventDefault();
+  fig.prepend(c);
+  if (ph) ph.remove();
+}
+function watchPages(root) {
+  root.querySelectorAll('figure.pg').forEach(f => {
+    const d = f.closest('details');
+    const go = () => (io ? io.observe(f) : loadPage(f));
+    if (!d || d.open) go(); else d.addEventListener('toggle', function once() { if (d.open) { d.removeEventListener('toggle', once); go(); } });
+  });
+}
+
+async function showSolution(dd) {
+  const box = dd.querySelector('.ddb');
+  const { data, error } = await sb.from('solutions').select('key_idea,hints,full_html,alt_html,wrong_options,focus_note,trap_alert,note_html').eq('question_id', dd.dataset.q).maybeSingle();
+  if (error || !data) { box.innerHTML = '<div class="dim small">The worked solution for this question is being written.</div>'; return; }
+  const blk = (label, html, cls = 'hint') => html ? `<div class="${cls}"><span>${label}</span>${html}</div>` : '';
+  const h = data.hints || [], w = data.wrong_options || {};
+  const wrong = Object.keys(w).length ? `<div class="hint"><span>Why the other options fail</span>${Object.keys(w).sort().map(k => `<div><b>(${esc(k)})</b> ${w[k]}</div>`).join('')}</div>` : '';
+  box.innerHTML = blk('Key idea', data.key_idea, 'ans') + blk('Hint 1', h[0]) + blk('Hint 2', h[1]) + blk('Full solution', data.full_html) +
+    blk('The elegant way', data.alt_html) + wrong + blk('Where it usually slips', data.focus_note, 'note') + blk('Trap alert', data.trap_alert, 'note') + blk('Note from AK', data.note_html, 'note');
+  typeset(box);
+}
+
+function planText(ch, l, d, A, B, ta, tb) {
+  const line = e => `  - ${e.label.split('·').pop().trim()} ${e.title.replace(/\$/g, '')} (${e.minutes || '?'} min)`;
+  return [`${ch.name} · Lecture ${l.n}: ${l.title}`, `JEE Advanced · Mathemission Ready Lectures · 2 hours`, '',
+    `${l.n}A (about ${ta} min)`, `  - Theory: ${(l.topics || []).join('; ')} (${l.theory_min} min)`, ...A.map(line), '',
+    `${l.n}B (about ${tb} min)`, ...(B.length ? B.map(line) : ['  - (carry over / revision)']), '',
+    'Split it differently or speed up to suit your class’s pace and time.'].join('\n');
+}
+
+async function lecture(ch, l) {
+  const head = `<div class="crumbs"><a href="#/">Ready Lectures</a> › <a href="#/${ch.slug}">${esc(ch.name)}</a> ›</div>
+    <h2><small>${esc(ch.name)} · Lecture ${l.n}</small>${mathy(l.title)}${l.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : ''}</h2>`;
+  if (!canRead(l) && S.plan === 'pro' && !S.device.ok) {
+    app.innerHTML = head + deviceBox(); wireDevices(app); return typeset(app);
+  }
+  if (!canRead(l)) {
+    app.innerHTML = head + `<div class="box"><h3>In this lecture</h3><ul class="small">${(l.topics || []).map(t => `<li>${mathy(t)}</li>`).join('')}</ul></div>
+      <div class="lock"><h3>Coming soon with Teach Pro</h3><p>The Free plan includes Lecture 1 and the PYQ lecture of every chapter. The other Ready Lectures, with theory pages, E-sets, hints and answers, open with Teach Pro when it launches.</p><a class="btn" href="/">Back to Teach</a></div>`;;
+    return typeset(app);
+  }
+  app.innerHTML = head + '<div class="spin">Loading lecture…</div>';
+  let d;
+  try { d = await load(l); } catch (e) { app.innerHTML = head + `<div class="lock"><h3>Couldn’t load this lecture</h3><p>${esc(e.message)}</p></div>`; return; }
+
+  if (isPyq(l)) {
+    const list = d.pyqs.map(p => `<article class="q"><header><span class="lab">JEE Advanced ${esc(p.tag)}</span></header><div class="stem">${p.stem_html}</div>
+      ${p.question_id ? `<details class="ha dd" data-q="${esc(p.question_id)}"><summary>Deep Dive solution</summary><div class="ddb"><div class="dim small">Loading…</div></div></details>` : ''}</article>`).join('');
+    app.innerHTML = head + `<div class="meta dim">${d.pyqs.length} JEE Advanced past questions · ${d.items.length ? d.items.length + ' E-questions · ' : ''}Deep Dive solution under each question</div>
+      <div class="pace">Use this lecture to close the chapter: go through the past questions in class. Open “Deep Dive solution” under a question for the key idea, hints, the full solution and the elegant way; students find the same solutions in Mathemission Study.</div>
+      ${d.items.length ? '<div class="part"><h3>E-set</h3>' + d.items.map(itemCard).join('') + '</div>' : ''}
+      <div class="part"><h3>Past questions</h3>${list}</div>`;
+    app.querySelectorAll('details.dd').forEach(dd => dd.addEventListener('toggle', () => { if (dd.open && !dd.dataset.done) { dd.dataset.done = 1; showSolution(dd); } }));
+    return typeset(app);
+  }
+
+  const cut = l.split_at || 0;
+  const A = d.items.slice(0, cut), B = d.items.slice(cut);
+  const ta = (l.theory_min || 0) + A.reduce((s, e) => s + (e.minutes || 0), 0);
+  const tb = B.reduce((s, e) => s + (e.minutes || 0), 0);
+  const over = l.total_min > 135 ? `<p class="warn">About ${l.total_min} min of material, a little more than 2 hours. Speed up, or carry the rest into the next class.</p>` : '';
+  app.innerHTML = head + `
+    <div class="meta dim">2 hours · ${d.items.length} E-questions · ${(l.formulas || []).length} formula boxes</div>${over}
+    <div class="actions"><button class="btn" id="use">Use this lecture</button><button class="btn ghost" id="pr">Print hints sheet</button></div>
+    <div class="grid two">
+      <div class="box"><h3>Topics</h3><ul class="small">${(l.topics || []).map(t => `<li>${mathy(t)}</li>`).join('')}</ul></div>
+      <div class="box"><h3>Concept cards</h3><ul class="small">${(l.concepts || []).map(t => `<li>${t}</li>`).join('') || '<li>—</li>'}</ul></div>
+    </div>
+    <div class="box"><h3>Summary sheet · formulas</h3><ol class="small">${(l.formulas || []).map(t => `<li>${t}</li>`).join('') || '<li>—</li>'}</ol></div>
+    <div class="pace">${PACE}</div>
+    <div class="part"><h3>${l.n}A <small>· about ${ta} min</small></h3>
+      ${pages(ch, l.theory_pages, { open: true, text: `Theory · lecture notes · ${(l.theory_pages || []).length} pages · about ${l.theory_min} min` })}
+      ${A.map(itemCard).join('')}
+    </div>
+    <div class="part"><h3>${l.n}B <small>· about ${tb} min</small></h3>${B.map(itemCard).join('') || '<p class="dim">Use this part to finish 1A at your pace, or for revision.</p>'}</div>
+    ${pages(ch, l.all_pages, { open: false, text: `All pages of this lecture (${(l.all_pages || []).length})` })}`;
+  document.getElementById('use').onclick = async () => {
+    const txt = planText(ch, l, d, A, B, ta, tb);
+    try { await navigator.clipboard.writeText(txt); toast('Lecture plan copied. Paste it into Lecture Notes or your planner.'); }
+    catch { prompt('Copy the lecture plan:', txt); }
+  };
+  document.getElementById('pr').onclick = () => { app.querySelectorAll('details.ha').forEach(x => x.open = true); setTimeout(() => print(), 300); };
+  app.addEventListener('contextmenu', e => { if (e.target.closest('figure.pg')) e.preventDefault(); });
+  watchPages(app);
+  typeset(app);
+}
+
+boot().catch(e => { app.innerHTML = `<div class="lock"><h3>Something went wrong</h3><p>${esc(e.message)}</p></div>`; });
+})();
+</script>
+</body>
+</html>
