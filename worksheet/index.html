@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/kit/kit.css?v=2">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="/kit/kit.js?v=1"></script>
+<script src="/kit/kit.js?v=2"></script>
 <style>
 .sec-h{display:flex;justify-content:space-between;align-items:baseline;margin:20px 0 4px;padding-bottom:4px;border-bottom:1px solid var(--line)}
 .sec-h h3{font-size:16px}.sec-h span{font-size:12px;color:var(--muted)}
@@ -68,6 +68,7 @@
 (() => {
 'use strict';
 const K = window.MMK, { esc, toast, typeset, S } = K;
+const isSC = q => /^SC-/.test(q.id);   // local copy: a cached older kit.js has no K.isSC
 const app = document.getElementById('app');
 K.chrome('Worksheet Builder');
 
@@ -126,8 +127,8 @@ function pool() {
   const t = track();
   return META.filter(q => {
     if (q.track !== t) return false;
-    if (W.source === 'sc') return K.isSC(q) && (!W.chapters.length || W.chapters.includes(q.chapter_id));
-    if (K.isSC(q)) return false;
+    if (W.source === 'sc') return isSC(q) && (!W.chapters.length || W.chapters.includes(q.chapter_id));
+    if (isSC(q)) return false;
     if (W.source === 'adv' && K.isRA(q)) return false;
     if (W.source === 'ra' && !K.isRA(q)) return false;
     if (W.chapters.length && !W.chapters.includes(q.chapter_id)) return false;
@@ -144,7 +145,7 @@ function form() {
   const groups = [];
   CH.filter(c => c.track === t).sort((a, b) => (a.grp_order || 0) - (b.grp_order || 0) || a.syllabus_order - b.syllabus_order)
     .forEach(c => { let g = groups.find(g => g[0] === c.grp); if (!g) groups.push(g = [c.grp, []]); g[1].push(c); });
-  const nIn = id => META.filter(q => q.chapter_id === id && (W.source === 'sc' ? K.isSC(q) : !K.isSC(q)) && (W.source !== 'adv' || !K.isRA(q)) && (W.source !== 'ra' || K.isRA(q))).length;
+  const nIn = id => META.filter(q => q.chapter_id === id && (W.source === 'sc' ? isSC(q) : !isSC(q)) && (W.source !== 'adv' || !K.isRA(q)) && (W.source !== 'ra' || K.isRA(q))).length;
   const yrs = t === 'main' ? [2019, 2026] : [2006, 2026];
   const max = K.pro() ? PRO_MAX : FREE_MAX;
   const proTag = K.pro() ? '' : '<span class="lockt">Pro</span>';
