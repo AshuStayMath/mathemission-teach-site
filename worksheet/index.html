@@ -73,6 +73,9 @@ K.chrome('Worksheet Builder');
 
 const FREE_MAX = 15, PRO_MAX = 90, FREE_SAVES = 3;
 const SOURCES = { main: 'JEE Main PYQs', adv: 'JEE Advanced PYQs', ra: 'Rankers Assignment Plus', advra: 'Advanced + RA Plus' };
+/* Institute material (Sri Chaitanya GTA): draft rows, readable by admin only during the pilot (13 Nov 2026). */
+const SC_LABEL = 'Sri Chaitanya GTA';
+const sources = () => (S.admin ? { ...SOURCES, sc: SC_LABEL } : SOURCES);
 const BUCKETS = {
   main: [['sc', 'MCQ', 4, -1], ['num', 'Numerical', 4, -1]],
   adv: [['sc', 'Single correct', 3, -1], ['mc', 'Multiple correct', 4, -2], ['num', 'Numerical', 4, 0], ['match', 'Matching', 3, -1]]
@@ -102,7 +105,9 @@ const INTRO = `<h1><small>Mathemission Teach</small>Worksheet &amp; Test Builder
     [CH, META, SAVED, PREFS] = await Promise.all([
       K.chapters(),
       K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty', q => q.eq('status', 'published').order('id'),
-        n => { const l = document.getElementById('ld'); if (l) l.textContent = `Loading the question bank… ${n}`; }),
+        n => { const l = document.getElementById('ld'); if (l) l.textContent = `Loading the question bank… ${n}`; })
+        .then(async rows => S.admin ? rows.concat(await K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty,source_ref',
+          q => q.eq('status', 'draft').like('id', 'SC-%').order('id'))) : rows),
       K.kvGet('teach_worksheets', []),
       K.kvGet('teach_sheet_prefs', {})
     ]);
@@ -121,6 +126,8 @@ function pool() {
   const t = track();
   return META.filter(q => {
     if (q.track !== t) return false;
+    if (W.source === 'sc') return K.isSC(q) && (!W.chapters.length || W.chapters.includes(q.chapter_id));
+    if (K.isSC(q)) return false;
     if (W.source === 'adv' && K.isRA(q)) return false;
     if (W.source === 'ra' && !K.isRA(q)) return false;
     if (W.chapters.length && !W.chapters.includes(q.chapter_id)) return false;
@@ -137,7 +144,7 @@ function form() {
   const groups = [];
   CH.filter(c => c.track === t).sort((a, b) => (a.grp_order || 0) - (b.grp_order || 0) || a.syllabus_order - b.syllabus_order)
     .forEach(c => { let g = groups.find(g => g[0] === c.grp); if (!g) groups.push(g = [c.grp, []]); g[1].push(c); });
-  const nIn = id => META.filter(q => q.chapter_id === id && (W.source !== 'adv' || !K.isRA(q)) && (W.source !== 'ra' || K.isRA(q))).length;
+  const nIn = id => META.filter(q => q.chapter_id === id && (W.source === 'sc' ? K.isSC(q) : !K.isSC(q)) && (W.source !== 'adv' || !K.isRA(q)) && (W.source !== 'ra' || K.isRA(q))).length;
   const yrs = t === 'main' ? [2019, 2026] : [2006, 2026];
   const max = K.pro() ? PRO_MAX : FREE_MAX;
   const proTag = K.pro() ? '' : '<span class="lockt">Pro</span>';
@@ -146,10 +153,10 @@ function form() {
     <div class="box">
       <h3>1 · What goes in</h3>
       <label class="f">Questions from</label>
-      <div class="seg" id="src">${Object.entries(SOURCES).map(([k, v]) => `<button data-v="${k}" class="${W.source === k ? 'on' : ''}">${v}</button>`).join('')}</div>
+      <div class="seg" id="src">${Object.entries(sources()).map(([k, v]) => `<button data-v="${k}" class="${W.source === k ? 'on' : ''}">${v}</button>`).join('')}</div>
       <label class="f">Chapters <span class="pill2">(none picked = all chapters)</span></label>
       <div id="chs">${groups.map(([g, cs]) => `<div class="grp">${esc(g || '')}</div><div class="chips">${cs.map(c => { const n = nIn(c.id); return n ? `<button class="chip ${W.chapters.includes(c.id) ? 'on' : ''}" data-c="${c.id}">${esc(c.name)} <span class="pill2">${n}</span></button>` : ''; }).join('')}</div>`).join('')}</div>
-      ${W.source === 'ra' ? '' : `<div class="row" style="margin-top:6px">
+      ${W.source === 'ra' || W.source === 'sc' ? '' : `<div class="row" style="margin-top:6px">
         <div><label class="f">From year</label><input class="i" type="number" id="yf" min="${yrs[0]}" max="${yrs[1]}" value="${W.yFrom}"></div>
         <div><label class="f">To year</label><input class="i" type="number" id="yt" min="${yrs[0]}" max="${yrs[1]}" value="${W.yTo}"></div></div>`}
       <label class="f">How many of each type <span class="pill2">(available in brackets)</span></label>
@@ -255,7 +262,7 @@ async function sheet() {
   const secs = sections(W.items);
   const proTag = K.pro() ? '' : '<span class="lockt">Pro</span>';
   app.innerHTML = `<div class="crumbs"><a href="#" id="edit">Worksheet Builder</a> ›</div>
-    <h1><small>${esc(SOURCES[W.source])}</small><input class="i" id="title" value="${esc(W.title)}" style="font-size:20px;font-weight:700"></h1>
+    <h1><small>${esc(sources()[W.source] || SOURCES.adv)}</small><input class="i" id="title" value="${esc(W.title)}" style="font-size:20px;font-weight:700"></h1>
     <div class="statline"><span><b>${W.items.length}</b> questions</span><span>Max marks <b>${W.marking ? maxMarks(W.items) : '—'}</b></span><span>Time <b>${W.minutes} min</b></span>
       <span>${DNAME.map((d, i) => `${d} <b>${W.items.filter(id => diffIx(qOf(id)) === i).length}</b>`).join(' · ')}</span></div>
     <div class="box">

@@ -117,6 +117,7 @@ async function kvSet(key, value) {
 const LET = ['A', 'B', 'C', 'D', 'E', 'F'];
 const kind = q => q.answer_key && q.answer_key.kind;              // 'sc' | 'mc' | 'num' | 'grid'
 const isRA = q => /^RA/.test(q.id);
+const isSC = q => /^SC-/.test(q.id);                       // Sri Chaitanya GTA (institute)
 const optLabel = (q, j) => (q.track === 'main' ? String(j + 1) : LET[j]);
 const fmt = v => (Number.isInteger(v) ? String(v) : String(+(+v).toFixed(4)));
 function keyText(q) {
@@ -136,6 +137,7 @@ function typeName(q) {
 }
 function srcText(q) {
   if (isRA(q)) return 'RA Plus · ' + (q.paper || '');
+  if (isSC(q)) return 'Sri Chaitanya · ' + (q.source_ref || '').replace(/^SC /, '');
   if (q.track === 'main') return `JEE Main ${q.year}${q.paper ? ' · ' + q.paper : ''}`;
   return `JEE Advanced ${q.year}${q.paper ? ', Paper ' + q.paper : ''}`;
 }
@@ -157,5 +159,5 @@ function rng(seed) { let x = hash(String(seed)) || 1; return () => { x ^= x << 1
 function shuffle(arr, r = Math.random) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
 window.MMK = { sb, S, pro, esc, toast, typeset, chrome, boot, fetchAll, fetchIn, chapters, kvGet, kvSet,
-  LET, kind, isRA, keyText, typeName, srcText, body, optLabel, hash, rng, shuffle };
+  LET, kind, isRA, isSC, keyText, typeName, srcText, body, optLabel, hash, rng, shuffle };
 })();
