@@ -74,9 +74,9 @@ K.chrome('Worksheet Builder');
 
 const FREE_MAX = 15, PRO_MAX = 90, FREE_SAVES = 3;
 const SOURCES = { main: 'JEE Main PYQs', adv: 'JEE Advanced PYQs', ra: 'Rankers Assignment Plus', advra: 'Advanced + RA Plus' };
-/* Institute material (Sri Chaitanya GTA): draft rows, readable by admin only during the pilot (13 Nov 2026). */
+/* Institute material (Sri Chaitanya GTA): rows with status 'teach', readable by Teach Pro and admin only (RLS, migration 35). */
 const SC_LABEL = 'Sri Chaitanya GTA';
-const sources = () => (S.admin ? { ...SOURCES, sc: SC_LABEL } : SOURCES);
+const sources = () => (K.pro() ? { ...SOURCES, sc: SC_LABEL } : SOURCES);
 const BUCKETS = {
   main: [['sc', 'MCQ', 4, -1], ['num', 'Numerical', 4, -1]],
   adv: [['sc', 'Single correct', 3, -1], ['mc', 'Multiple correct', 4, -2], ['num', 'Numerical', 4, 0], ['match', 'Matching', 3, -1]]
@@ -107,8 +107,8 @@ const INTRO = `<h1><small>Mathemission Teach</small>Worksheet &amp; Test Builder
       K.chapters(),
       K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty', q => q.eq('status', 'published').order('id'),
         n => { const l = document.getElementById('ld'); if (l) l.textContent = `Loading the question bank… ${n}`; })
-        .then(async rows => S.admin ? rows.concat(await K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty,source_ref',
-          q => q.eq('status', 'draft').like('id', 'SC-%').order('id'))) : rows),
+        .then(async rows => K.pro() ? rows.concat(await K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty,source_ref',
+          q => q.eq('status', 'teach').like('id', 'SC-%').order('id'))) : rows),
       K.kvGet('teach_worksheets', []),
       K.kvGet('teach_sheet_prefs', {})
     ]);
