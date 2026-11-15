@@ -81,11 +81,14 @@
 #sheet .ansbox{display:inline-flex;align-items:center;gap:2mm;margin-top:2mm;font:600 8pt Inter,sans-serif;color:#6b7799}
 #sheet .ansbox i{display:inline-block;width:30mm;height:7mm;border:1px solid #9aa5c2;border-radius:1.5mm}
 #sheet table{border-collapse:collapse}
-#sheet .grid td,#sheet .grid th{border:1px solid #9aa5c2;padding:1mm 3mm;font-size:9.4pt;min-width:9mm}
-#sheet .grid th{background:var(--tint)}
+#sheet .mgrid td,#sheet .mgrid th{border:1px solid #9aa5c2;padding:1mm 3mm;font-size:9.4pt;min-width:9mm}
+#sheet .mgrid th{background:var(--tint)}
 #sheet .box{background:var(--tint);border:1px solid var(--rule);border-radius:2mm;padding:2mm 3mm;margin:0 0 2mm;color:var(--ink)}
 #sheet .box h3{font:800 7.4pt Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--navy);margin:0 0 1mm}
-#sheet mjx-container{max-width:100%;overflow:visible!important}
+#sheet .stem,#sheet .tw{overflow:visible!important}
+#sheet table{font-size:inherit;margin:1.5mm 0}#sheet td,#sheet th{border:1px solid #9aa5c2;padding:1mm 2.5mm;min-width:0;vertical-align:top;color:var(--ink)}
+#sheet .stem ol,#sheet .stem ul{padding-left:6mm;margin:1mm 0}
+#sheet mjx-container{max-width:none!important;overflow:visible!important}
 #sheet mjx-container[display="true"]{margin:1.6mm 0!important}
 #sheet img,#sheet svg:not(mjx-container svg){max-width:100%;height:auto}
 #sheet .end{text-align:center;font:700 8pt Inter,sans-serif;letter-spacing:.3em;color:#9aa5c2;margin-top:6mm}
@@ -499,7 +502,7 @@ const plainLen = h => String(h || '').replace(/<[^>]+>/g, '').replace(/\\[a-zA-Z
 function optsHtml(q) {
   const k = K.kind(q);
   if (k === 'grid' && q.options && q.options.rows) {
-    return `<table class="grid" style="margin-top:2mm"><tr><th></th>${q.options.cols.map(c => `<th>${c}</th>`).join('')}</tr>${q.options.rows.map(r => `<tr><th>${r}</th>${q.options.cols.map(() => '<td></td>').join('')}</tr>`).join('')}</table>`;
+    return `<table class="mgrid" style="margin-top:2mm"><tr><th></th>${q.options.cols.map(c => `<th>${c}</th>`).join('')}</tr>${q.options.rows.map(r => `<tr><th>${r}</th>${q.options.cols.map(() => '<td></td>').join('')}</tr>`).join('')}</table>`;
   }
   if (!Array.isArray(q.options) || !q.options.length) {
     return k === 'num' && W.answerBoxes ? '<div class="ansbox">Answer <i></i></div>' : '';
@@ -558,6 +561,15 @@ async function buildSheet() {
   pageStyle();
   return el;
 }
+/* Maths wider than its column is scaled down to fit (MathJax doesn't break lines). */
+function fitMaths(el) {
+  el.querySelectorAll('mjx-container').forEach(m => {
+    m.style.zoom = '';
+    const box = m.parentElement.closest('.b,.sol,.stem,li,div');
+    const room = box ? box.clientWidth : 0, w = m.getBoundingClientRect().width;
+    if (room && w > room + 1) m.style.zoom = Math.max(0.55, (room - 2) / w).toFixed(3);
+  });
+}
 async function preview() {
   const b = app.querySelector('#pvbtn'); b.disabled = true; b.textContent = 'Preparing…';
   try {
@@ -570,6 +582,7 @@ async function preview() {
     document.body.style.overflow = 'hidden';
     await Promise.all([typeset(el), document.fonts ? document.fonts.ready : null]);
     await Promise.all([...el.querySelectorAll('img')].map(i => (i.complete ? null : new Promise(r => { i.onload = i.onerror = r; }))));
+    fitMaths(el);
     const close = () => { document.body.style.overflow = ''; document.body.appendChild(el); el.innerHTML = ''; pv.remove(); };
     pv.querySelector('#pvClose').onclick = close;
     pv.querySelector('#pvPrint').onclick = () => {
