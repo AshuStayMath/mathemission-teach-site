@@ -33,11 +33,11 @@
 
 /* ---------- the printed sheet (also used for the on-screen preview) ---------- */
 #sheet{display:none}
-#preview{position:fixed;inset:0;z-index:60;background:#0b1020e8;overflow:auto;padding:70px 12px 40px}
-#preview .pbar{position:fixed;top:0;left:0;right:0;z-index:61;display:flex;gap:8px;justify-content:center;align-items:center;padding:12px;background:#060b1f;border-bottom:1px solid var(--line)}
-#preview .pbar span{color:var(--muted);font-size:13px;margin-right:auto;padding-left:6px}
-#preview #sheet{display:block;margin:0 auto;max-width:210mm}
-#preview #sheet .set{background:#fff;box-shadow:0 6px 30px #0008;padding:15mm 14mm 16mm;margin:0 auto 18px;min-height:250mm}
+#pvwrap{position:fixed;inset:0;z-index:60;background:#0b1020e8;overflow:auto;padding:70px 12px 40px}
+#pvwrap .pbar{position:fixed;top:0;left:0;right:0;z-index:61;display:flex;gap:8px;justify-content:center;align-items:center;padding:12px;background:#060b1f;border-bottom:1px solid var(--line)}
+#pvwrap .pbar span{color:var(--muted);font-size:13px;margin-right:auto;padding-left:6px}
+#pvwrap #sheet{display:block;margin:0 auto;max-width:210mm}
+#pvwrap #sheet .set{background:#fff;box-shadow:0 6px 30px #0008;padding:15mm 14mm 16mm;margin:0 auto 18px;min-height:250mm}
 #sheet{--ink:#14182b;--navy:#0b1f4d;--blue:#1d4fc4;--rule:#c9d3ea;--tint:#f2f6fd;--gold:#b7860b;
   color:var(--ink);font:10.6pt/1.5 "Source Serif 4","Latin Modern Roman",Georgia,serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 #sheet *{box-sizing:border-box}
@@ -102,11 +102,11 @@
 @media print{
   @page{size:A4;margin:14mm 13mm 15mm}
   html,body{background:#fff!important}
-  body>*:not(#sheet):not(#preview){display:none!important}
-  #preview{position:static;background:none;padding:0;overflow:visible}
-  #preview .pbar{display:none}
-  #preview #sheet,#sheet{display:block;max-width:none}
-  #sheet .set,#preview #sheet .set{box-shadow:none;padding:0;margin:0;min-height:0;break-after:page}
+  body>*:not(#sheet):not(#pvwrap){display:none!important}
+  #pvwrap{position:static;background:none;padding:0;overflow:visible}
+  #pvwrap .pbar{display:none}
+  #pvwrap #sheet,#sheet{display:block;max-width:none}
+  #sheet .set,#pvwrap #sheet .set{box-shadow:none;padding:0;margin:0;min-height:0;break-after:page}
   #sheet .set:last-child{break-after:auto}
 }
 </style>
@@ -385,7 +385,7 @@ async function sheet() {
       <div class="seg" id="sets">${[1, 2, 3].map(k => `<button data-v="${k}" class="${W.sets === k ? 'on' : ''}">${k === 1 ? 'One version' : k === 2 ? 'Sets A, B' : 'Sets A, B, C'}${k > 1 && !K.pro() ? ' 🔒' : ''}</button>`).join('')}</div>
       <p class="small dim" style="margin-top:4px">Sets B and C have the same questions in a different order inside each section, each with its own key.</p>
     </div>
-    <div class="actions"><button class="btn" id="preview">Preview &amp; print</button><button class="btn ghost" id="save">${W.id ? 'Save changes' : 'Save this sheet'}</button>
+    <div class="actions"><button class="btn" id="pvbtn">Preview &amp; print</button><button class="btn ghost" id="save">${W.id ? 'Save changes' : 'Save this sheet'}</button>
       <button class="btn ghost" id="again">Choose again</button><button class="btn ghost" id="edit2">Change settings</button></div>
     ${secs.map(s => `<div class="sec-h"><h3>${s.name}</h3><span>${s.ids.length} question${s.ids.length > 1 ? 's' : ''}${W.marking ? ` · +${s.plus}${s.minus ? ' / ' + s.minus : ''}${s.b === 'mc' ? ' (partial marks)' : ''}` : ''}</span></div>
       ${s.ids.map(id => { const q = qOf(id); n++; return `<article class="q" data-id="${esc(id)}"><header><span><span class="qn">Q${n}</span>${esc(K.srcText(q))} · ${esc(chName(q.chapter_id))}</span><span>${esc(q.difficulty || '')}</span></header>
@@ -411,7 +411,7 @@ async function sheet() {
   app.querySelectorAll('.q [data-a]').forEach(b => b.onclick = () => { keep(); act(b.closest('.q').dataset.id, b.dataset.a); });
   $('#more').onclick = () => { keep(); more(); };
   $('#save').onclick = async () => { keep(); await save(); };
-  $('#preview').onclick = async () => { keep(); savePrefs(); await preview(); };
+  $('#pvbtn').onclick = async () => { keep(); savePrefs(); await preview(); };
 }
 
 async function act(id, a) {
@@ -559,11 +559,11 @@ async function buildSheet() {
   return el;
 }
 async function preview() {
-  const b = app.querySelector('#preview'); b.disabled = true; b.textContent = 'Preparing…';
+  const b = app.querySelector('#pvbtn'); b.disabled = true; b.textContent = 'Preparing…';
   try {
     const el = await buildSheet();
-    let pv = document.getElementById('preview');
-    if (!pv) { pv = document.createElement('div'); pv.id = 'preview'; document.body.appendChild(pv); }
+    let pv = document.getElementById('pvwrap');
+    if (!pv) { pv = document.createElement('div'); pv.id = 'pvwrap'; document.body.appendChild(pv); }
     pv.innerHTML = `<div class="pbar"><span>Preview · ${W.items.length} questions${W.sets > 1 ? ` · ${W.sets} sets` : ''}${W.key ? ' · answer key' : ''}${W.sols && K.pro() ? ' · solutions' : ''}</span>
       <button class="btn" id="pvPrint">Print / save as PDF</button><button class="btn ghost" id="pvClose">Close</button></div>`;
     pv.appendChild(el);
