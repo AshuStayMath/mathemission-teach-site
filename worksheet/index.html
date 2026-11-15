@@ -194,8 +194,33 @@ const INTRO = `<h1><small>Mathemission Teach</small>Worksheet &amp; Test Builder
   const h = new URLSearchParams(location.hash.slice(1));
   if (h.get('track') === 'main') setTrack('main');
   if (h.get('chapter')) W.chapters = [+h.get('chapter')];
+  if (h.get('set')) { if (await fromSet(h.get('set'))) return; }
   form();
 })();
+
+/* A worksheet from one of the teacher's Question Sets (Teach home → Question Sets → "Make a worksheet"). */
+async function fromSet(id) {
+  let sets = {};
+  try { sets = JSON.parse(localStorage.getItem('mt_sets') || '{}'); } catch (e) {}
+  if (!sets[id]) sets = await K.kvGet('teach_sets', {}) || {};
+  const set = sets[id];
+  if (!set || set.deleted || !(set.ids || []).length) { toast('That question set is empty or was not found.'); return false; }
+  let ids = set.ids.slice();
+  try { await ensureFull(ids); } catch (e) { toast('Couldn’t load the set: ' + e.message); return false; }
+  const para = ids.filter(x => FULL[x] && FULL[x].passage_id).length;
+  ids = ids.filter(x => FULL[x] && !FULL[x].passage_id);
+  if (!ids.length) { toast('This set has only paragraph questions, which worksheets don’t take yet.'); return false; }
+  const nMain = ids.filter(x => FULL[x].track === 'main').length;
+  W.track = nMain > ids.length / 2 ? 'main' : 'adv';
+  W.srcs = [...new Set(ids.map(x => srcOf(FULL[x])))];
+  const max = K.pro() ? PRO_MAX : FREE_MAX;
+  if (ids.length > max) { toast(`Using the first ${max} questions of the set (${K.pro() ? 'the most per sheet' : 'Free plan limit'}).`); ids = ids.slice(0, max); }
+  else if (para) toast(`${para} paragraph question${para > 1 ? 's' : ''} left out (not supported in worksheets yet).`);
+  W.items = ids; W.title = set.name; W.id = null; W.minutes = 0;
+  history.replaceState(null, '', location.pathname);
+  sheet();
+  return true;
+}
 
 function setTrack(t) {
   W.track = t; W.chapters = [];
