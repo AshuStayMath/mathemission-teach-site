@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#060b1f">
+<meta name="robots" content="noindex">
+<title>My Questions · Mathemission Teach</title>
+<link rel="icon" href="/favicon-64.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/kit/kit.css?v=3">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="/kit/kit.js?v=4"></script>
+<style>
+.tabs2{display:flex;gap:6px;margin:6px 0 14px}
+.tabs2 a,.tabs2 span{padding:7px 12px;border-radius:9px;border:1px solid var(--line);font-size:13.5px;text-decoration:none;color:var(--muted);background:var(--panel2)}
+.tabs2 span{color:var(--text);border-color:#3a5aa8;background:#1a2a5a}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.tools .i{width:auto;flex:1;min-width:140px}
+.myq{position:relative}
+.myq .pick{position:absolute;top:12px;right:12px}
+.myq header{padding-right:30px}
+.ed{border:1px solid #3a5aa8;border-radius:14px;padding:14px;background:var(--panel);margin:10px 0 18px}
+.ed textarea.i{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13.5px;line-height:1.45;min-height:90px;resize:vertical}
+.pv{border:1px dashed var(--line);border-radius:10px;padding:8px 12px;margin-top:6px;min-height:36px;font-size:15px}
+.pv:empty::before{content:"Preview appears here";color:var(--muted);font-size:13px}
+.snips{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 2px}
+.snips button{font:12px ui-monospace,Menlo,monospace;padding:3px 7px;border-radius:6px;border:1px solid var(--line);color:var(--muted);background:var(--panel2)}
+.snips button:hover{color:var(--text);border-color:#3a5aa8}
+.optrow{display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:start;margin:6px 0}
+.optrow .ok{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);font-weight:700;color:var(--muted)}
+.optrow .ok.on{background:#16a34a;border-color:#16a34a;color:#fff}
+.optrow .pv{margin-top:4px;padding:4px 10px;min-height:28px;font-size:14px}
+.selbar{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,#060b1f 35%);padding:14px 0 10px;display:flex;gap:8px;justify-content:center}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><span class="logo">M</span><span>Mathemission Teach<small id="sub"></small></span></a>
+  <nav class="nav" id="nav"></nav>
+  <span id="plan" class="plan hidden"></span>
+</header>
+<main class="wrap" id="app"><div class="spin">Loading…</div></main>
+<footer class="wrap">AK · Stay Mathactive · <a href="https://mathemission.in">mathemission.in</a></footer>
+<div id="toast" class="toast hidden"></div>
+<script>
+(() => {
+'use strict';
+const K = window.MMK, { esc, toast, typeset } = K;
+const app = document.getElementById('app');
+K.chrome('My Questions');
+const FREE_MAX = 20;
+const RET = new URLSearchParams(location.search).get('ret') === 'ws';   // came from the Worksheet Builder
+const TYPES = [['sc', 'Single correct'], ['mc', 'Multiple correct'], ['num', 'Numerical'], ['match', 'Matching'], ['subj', 'Subjective']];
+const SNIPS = [['$x$', '$', '$'], ['\\frac{a}{b}', '\\frac{', '}{}'], ['\\sqrt{x}', '\\sqrt{', '}'], ['x^{n}', '^{', '}'], ['x_{n}', '_{', '}'],
+  ['\\int_a^b', '\\int_{', '}^{} '], ['\\sum', '\\sum_{r=1}^{n} ', ''], ['\\lim', '\\lim_{x\\to ', '} '], ['\\vec{a}', '\\vec{', '}'],
+  ['matrix', '\\begin{bmatrix} ', ' \\\\  \\end{bmatrix}'], ['\\theta', '\\theta', ''], ['\\pi', '\\pi', ''], ['\\le', '\\le ', ''], ['\\ne', '\\ne ', ''], ['\\in', '\\in ', ''], ['\\mathbb{R}', '\\mathbb{R}', '']];
+const INTRO = `<h1><small>Mathemission Teach</small>My Questions</h1>
+  <p class="lead">Questions you write yourself, in LaTeX with a live preview. Use them in worksheets on their own or mixed with PYQs and test-series questions.</p>
+  <div class="tabs2"><a href="/?go=sets">Saved sets</a><span>Written by me</span></div>`;
+
+let CH = [], ALL = {}, F = { track: '', chap: '', type: '', q: '' }, SEL = new Set(), EDIT = null;
+const list = () => Object.values(ALL).filter(r => !r.deleted).sort((a, b) => (b.updated || 0) - (a.updated || 0));
+const chName = id => (CH.find(c => c.id === +id) || {}).name || '';
+
+(async () => {
+  if (!await K.boot(app, INTRO)) return;
+  [CH, ALL] = await Promise.all([K.chapters(), K.myQuestions()]);
+  draw();
+  if (RET) { toast('Write your question and tap Save: it goes straight into your worksheet.'); openEditor(null); }
+})();
+
+function chapOpts(track, sel) {
+  const groups = [];
+  CH.filter(c => !track || c.track === track).sort((a, b) => (a.grp_order || 0) - (b.grp_order || 0) || a.syllabus_order - b.syllabus_order)
+    .forEach(c => { let g = groups.find(g => g[0] === c.grp + c.track); if (!g) groups.push(g = [c.grp + c.track, c.grp, []]); g[2].push(c); });
+  return groups.map(([, g, cs]) => `<optgroup label="${esc(g || '')}">${cs.map(c => `<option value="${c.id}" ${+sel === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>`).join('');
+}
+function matches(r) {
+  const words = F.q.toLowerCase().split(/\s+/).filter(Boolean);
+  return (!F.track || r.track === F.track) && (!F.chap || +r.chapter_id === +F.chap) && (!F.type || r.type === F.type) &&
+    (!words.length || words.every(w => (r.stem + ' ' + (r.options || []).join(' ')).toLowerCase().includes(w)));
+}
+
+function draw() {
+  const rows = list(), shown = rows.filter(matches);
+  app.innerHTML = INTRO + `
+    <div class="actions" style="margin-top:0"><button class="btn" id="new">＋ New question</button>
+      <a class="btn ghost" href="/worksheet/templates/mathemission-worksheet.tex" download>⬇ LaTeX worksheet template</a></div>
+    <div id="edslot"></div>
+    ${rows.length ? `<div class="tools">
+      <select class="i" id="fTrack"><option value="">Both exams</option><option value="adv" ${F.track === 'adv' ? 'selected' : ''}>JEE Advanced</option><option value="main" ${F.track === 'main' ? 'selected' : ''}>JEE Main</option></select>
+      <select class="i" id="fChap"><option value="">All chapters</option>${chapOpts(F.track, F.chap)}</select>
+      <select class="i" id="fType"><option value="">All types</option>${TYPES.map(([k, n]) => `<option value="${k}" ${F.type === k ? 'selected' : ''}>${n}</option>`).join('')}</select>
+      <input class="i" id="fQ" placeholder="Search my questions…" value="${esc(F.q)}"></div>
+      <p class="small dim">${shown.length} of ${rows.length} question${rows.length === 1 ? '' : 's'}${K.pro() ? '' : ` · Free plan: up to ${FREE_MAX}`}. Tick questions to make a worksheet from them.</p>` : ''}
+    <div id="list">${shown.map(card).join('') || (rows.length ? '<p class="dim">No question matches.</p>' : `<div class="box"><h3>Start your own question bank</h3><p class="small">Tap <b>＋ New question</b>. Type the question with LaTeX maths between dollar signs, for example <code>$\\frac{1}{2}$</code>, and see it rendered as you type.</p></div>`)}</div>
+    <div class="selbar ${SEL.size ? '' : 'hidden'}" id="selbar"><button class="btn" id="mk">🖨 Make a worksheet (${SEL.size})</button><button class="btn ghost" id="clr">Clear</button></div>`;
+  const $ = s => app.querySelector(s);
+  $('#new').onclick = () => openEditor(null);
+  if ($('#fTrack')) {
+    $('#fTrack').onchange = e => { F.track = e.target.value; F.chap = ''; draw(); };
+    $('#fChap').onchange = e => { F.chap = e.target.value; draw(); };
+    $('#fType').onchange = e => { F.type = e.target.value; draw(); };
+    let t; $('#fQ').oninput = e => { clearTimeout(t); t = setTimeout(() => { F.q = e.target.value; draw(); const i = $('#fQ'); i && (i.focus(), i.setSelectionRange(i.value.length, i.value.length)); }, 300); };
+  }
+  app.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openEditor(b.dataset.edit));
+  app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => remove(b.dataset.del));
+  app.querySelectorAll('[data-pick]').forEach(c => c.onchange = () => { c.checked ? SEL.add(c.dataset.pick) : SEL.delete(c.dataset.pick); $('#selbar').classList.toggle('hidden', !SEL.size); $('#mk').textContent = `🖨 Make a worksheet (${SEL.size})`; });
+  $('#mk').onclick = () => { location.href = '/worksheet/#my=' + [...SEL].join(','); };
+  $('#clr').onclick = () => { SEL.clear(); draw(); };
+  typeset($('#list'));
+}
+function card(r) {
+  const q = K.myToQ(r);
+  return `<article class="q myq"><input type="checkbox" class="pick" data-pick="${esc(r.id)}" ${SEL.has(r.id) ? 'checked' : ''} aria-label="Pick for a worksheet">
+    <header><span class="lab">${r.track === 'main' ? 'JEE Main' : 'JEE Advanced'}${r.chapter_id ? ' · ' + esc(chName(r.chapter_id)) : ''}</span><span>${esc(K.typeName(q))}${r.difficulty ? ' · ' + esc(r.difficulty) : ''}</span></header>
+    ${K.body(q)}
+    <details class="ha"><summary>Answer${r.solution ? ' and solution' : ''}</summary><div class="ans"><span>Key</span>${esc(K.keyText(q))}${r.type === 'subj' && r.marks ? ` · ${r.marks} marks` : ''}</div>${r.solution ? `<div class="hint"><span>Solution</span>${q.sol_html}</div>` : ''}</details>
+    <div class="qtools" style="margin-top:8px"><button data-edit="${esc(r.id)}">Edit</button><button data-del="${esc(r.id)}">Delete</button></div></article>`;
+}
+
+/* ---------- editor ---------- */
+function openEditor(id) {
+  if (!id && !K.pro() && list().length >= FREE_MAX) return toast(`Free plan: up to ${FREE_MAX} questions of your own. Teach Pro (coming soon) is unlimited.`);
+  EDIT = id || '';
+  const r = id ? JSON.parse(JSON.stringify(ALL[id])) : { track: F.track || 'adv', chapter_id: F.chap || '', type: 'sc', stem: '', options: ['', '', '', ''], ans: 0, difficulty: 'Moderate', solution: '', marks: 4 };
+  if (!r.options || r.options.length < 4) r.options = [...(r.options || []), '', '', '', ''].slice(0, 4);
+  const slot = app.querySelector('#edslot');
+  slot.innerHTML = `<div class="ed">
+    <h3 style="margin-bottom:6px">${id ? 'Edit question' : 'New question'}</h3>
+    <div class="row3">
+      <div><label class="f">Exam</label><select class="i" id="eTrack"><option value="adv" ${r.track !== 'main' ? 'selected' : ''}>JEE Advanced</option><option value="main" ${r.track === 'main' ? 'selected' : ''}>JEE Main</option></select></div>
+      <div><label class="f">Chapter</label><select class="i" id="eChap"><option value="">Choose…</option>${chapOpts(r.track, r.chapter_id)}</select></div>
+      <div><label class="f">Difficulty</label><select class="i" id="eDiff">${['Easy', 'Moderate', 'Difficult'].map(d => `<option ${r.difficulty === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
+    </div>
+    <label class="f">Type</label>
+    <div class="seg" id="eType">${TYPES.map(([k, n]) => `<button data-v="${k}" class="${r.type === k ? 'on' : ''}">${n}</button>`).join('')}</div>
+    <label class="f">Question <span class="pill2">(maths between $…$; a blank line starts a new paragraph)</span></label>
+    <div class="snips" data-for="eStem">${SNIPS.map(([l], i) => `<button data-s="${i}" type="button">${esc(l)}</button>`).join('')}</div>
+    <textarea class="i" id="eStem" placeholder="Let $f(x)=x^2-3x+2$. Then the number of real roots of $f(f(x))=0$ is">${esc(r.stem)}</textarea>
+    <div class="pv" id="pStem"></div>
+    <div id="eOpts"></div>
+    <div id="eAns"></div>
+    <label class="f">Solution <span class="pill2">(optional; goes into the solutions booklet)</span></label>
+    <textarea class="i" id="eSol" style="min-height:70px">${esc(r.solution || '')}</textarea>
+    <div class="pv" id="pSol"></div>
+    <div class="actions"><button class="btn" id="eSave">Save</button><button class="btn ghost" id="eCancel">${RET ? 'Back to my worksheet' : 'Cancel'}</button>${id || RET ? '' : '<button class="btn ghost" id="eSaveNew">Save and add another</button>'}</div>
+  </div>`;
+  const $ = s => slot.querySelector(s);
+  let focused = $('#eStem');
+  const preview = (src, out) => { out.innerHTML = K.texToHtml(src.value); typeset(out); };
+  const live = (src, out) => { let t; src.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => preview(src, out), 350); }); src.addEventListener('focus', () => { focused = src; }); preview(src, out); };
+  const drawOpts = () => {
+    const t = r.type;
+    if (['sc', 'mc', 'match'].includes(t)) {
+      $('#eOpts').innerHTML = `<label class="f">Options <span class="pill2">(tap the letter to mark ${t === 'mc' ? 'every correct option' : 'the correct one'})</span></label>` +
+        r.options.map((o, j) => `<div class="optrow"><button type="button" class="ok ${t === 'mc' ? ((r.ans || []).includes?.(j) ? 'on' : '') : (r.ans === j ? 'on' : '')}" data-ok="${j}">${K.LET[j]}</button><div><input class="i" data-o="${j}" value="${esc(o)}" placeholder="Option ${K.LET[j]}"><div class="pv" data-po="${j}"></div></div></div>`).join('') +
+        (t === 'match' ? '<p class="small dim">Matching: write List-I and List-II in the question; each option is a matching such as <code>P→2; Q→3; R→1; S→4</code>.</p>' : '');
+      $('#eAns').innerHTML = '';
+      slot.querySelectorAll('[data-o]').forEach(inp => { const out = slot.querySelector(`[data-po="${inp.dataset.o}"]`); inp.oninput = () => { r.options[+inp.dataset.o] = inp.value; }; live(inp, out); });
+      slot.querySelectorAll('[data-ok]').forEach(b => b.onclick = () => {
+        const j = +b.dataset.ok;
+        if (t === 'mc') { const a = Array.isArray(r.ans) ? r.ans : []; r.ans = a.includes(j) ? a.filter(x => x !== j) : [...a, j].sort(); } else r.ans = j;
+        drawOpts();
+      });
+    } else if (t === 'num') {
+      $('#eOpts').innerHTML = '';
+      $('#eAns').innerHTML = `<label class="f">Answer (a number)</label><input class="i" id="eNum" inputmode="decimal" style="max-width:220px" value="${esc(typeof r.ans === 'number' || typeof r.ans === 'string' ? r.ans : '')}" placeholder="e.g. 12 or 0.25">`;
+      $('#eNum').oninput = e => { r.ans = e.target.value.trim(); };
+    } else {
+      $('#eOpts').innerHTML = '';
+      $('#eAns').innerHTML = `<div class="row"><div><label class="f">Marks</label><input class="i" id="eMarks" type="number" min="1" max="20" value="${r.marks || 4}"></div>
+        <div><label class="f">Short answer for the key <span class="pill2">(optional)</span></label><input class="i" id="eSubj" value="${esc(typeof r.ans === 'string' ? r.ans : '')}" placeholder="e.g. $x=2$"></div></div>`;
+      $('#eMarks').oninput = e => { r.marks = Math.max(1, +e.target.value || 4); };
+      $('#eSubj').oninput = e => { r.ans = e.target.value; };
+    }
+  };
+  slot.querySelectorAll('#eType button').forEach(b => b.onclick = () => {
+    const was = r.type; r.type = b.dataset.v;
+    if (r.type === 'mc' && !Array.isArray(r.ans)) r.ans = [];
+    if (['sc', 'match'].includes(r.type) && typeof r.ans !== 'number') r.ans = 0;
+    if (r.type === 'num' && was !== 'num') r.ans = '';
+    if (r.type === 'subj' && was !== 'subj') r.ans = '';
+    slot.querySelectorAll('#eType button').forEach(x => x.classList.toggle('on', x === b)); drawOpts();
+  });
+  $('#eTrack').onchange = e => { r.track = e.target.value; $('#eChap').innerHTML = '<option value="">Choose…</option>' + chapOpts(r.track, ''); };
+  slot.querySelectorAll('.snips button').forEach(b => b.onclick = () => {
+    const [, pre, post] = SNIPS[+b.dataset.s], ta = focused || $('#eStem');
+    const a = ta.selectionStart ?? ta.value.length, z = ta.selectionEnd ?? a;
+    ta.value = ta.value.slice(0, a) + pre + ta.value.slice(a, z) + post + ta.value.slice(z);
+    ta.focus(); const c = a + pre.length + (z - a); ta.setSelectionRange(c, c); ta.dispatchEvent(new Event('input'));
+  });
+  live($('#eStem'), $('#pStem')); live($('#eSol'), $('#pSol'));
+  drawOpts();
+  const collect = () => {
+    r.stem = $('#eStem').value.trim(); r.solution = $('#eSol').value.trim(); r.chapter_id = +$('#eChap').value || null; r.difficulty = $('#eDiff').value;
+    if (!r.stem) return toast('Write the question first.'), null;
+    if (['sc', 'mc', 'match'].includes(r.type)) {
+      r.options = r.options.map(o => o.trim());
+      if (r.options.some(o => !o)) return toast('Fill in all four options.'), null;
+      if (r.type === 'mc' ? !(r.ans || []).length : typeof r.ans !== 'number') return toast('Mark the correct option.'), null;
+    }
+    if (r.type === 'num' && isNaN(parseFloat(String(r.ans).replace('−', '-')))) return toast('Enter the numerical answer.'), null;
+    return r;
+  };
+  const doSave = async again => {
+    const rec = collect(); if (!rec) return;
+    rec.id = rec.id || ('q' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+    rec.updated = Date.now();
+    if (!['sc', 'mc', 'match'].includes(rec.type)) delete rec.options;
+    ALL[rec.id] = rec;
+    const ok = await K.saveMyQuestions(ALL);
+    toast(ok ? 'Saved to My Questions.' : 'Saved on this device only (couldn’t reach your account).');
+    if (RET) { location.href = '/worksheet/#resume&add=' + encodeURIComponent(rec.id); return; }
+    EDIT = null;
+    F.track = ''; F.chap = ''; F.type = ''; F.q = '';
+    draw();
+    if (again) { openEditor(null); }
+  };
+  $('#eSave').onclick = () => doSave(false);
+  if ($('#eSaveNew')) $('#eSaveNew').onclick = () => doSave(true);
+  $('#eCancel').onclick = () => { if (RET) { location.href = '/worksheet/#resume'; return; } EDIT = null; slot.innerHTML = ''; };
+  slot.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+async function remove(id) {
+  if (!confirm('Delete this question from My Questions?')) return;
+  ALL[id] = { id, deleted: true, updated: Date.now() };
+  SEL.delete(id);
+  toast(await K.saveMyQuestions(ALL) ? 'Deleted.' : 'Deleted on this device only.');
+  draw();
+}
+})();
+</script>
+</body>
+</html>

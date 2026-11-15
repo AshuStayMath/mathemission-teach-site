@@ -47,7 +47,7 @@ const typeset = el => (tq = tq.then(async () => {
 const S = { user: null, plan: 'free', admin: false };
 const pro = () => S.admin || S.plan === 'pro';
 
-const PAGES = [['/worksheet/', 'Worksheet Builder'], ['/trends/', 'PYQ Trends'], ['/problem/', 'Weekly Problem']];
+const PAGES = [['/my/', 'My Questions'], ['/worksheet/', 'Worksheet Builder'], ['/trends/', 'PYQ Trends'], ['/problem/', 'Weekly Problem']];
 function chrome(sub) {
   const here = location.pathname.replace(/index\.html$/, '');
   document.getElementById('nav').innerHTML = PAGES.map(([h, t]) => `<a href="${h}" class="${here === h ? 'on' : ''}">${t}</a>`).join('');
@@ -125,17 +125,20 @@ function keyText(q) {
   if (k.kind === 'sc') return `(${optLabel(q, a)})`;
   if (k.kind === 'mc') return a.map(i => `(${LET[i]})`).join(', ');
   if (k.kind === 'num') return k.keytxt || (Array.isArray(a) ? a.map(fmt).join(' or ') : fmt(a));
+  if (k.kind === 'subj') return k.keytxt ? k.keytxt : '—';
   if (k.kind === 'grid' && q.options) return q.options.rows.map((r, i) => `${r} → ${q.options.cols.filter((_, j) => a[i][j]).join(', ')}`).join('; ');
   return '';
 }
 function typeName(q) {
   const k = kind(q);
   if (q.track === 'main') return k === 'sc' ? 'MCQ' : 'Numerical';
+  if (k === 'subj') return 'Subjective';
   if (q.qtype === 'MATCH' || k === 'grid') return 'Matching';
   if (q.passage_id) return 'Paragraph';
   return { sc: 'Single correct', mc: 'Multiple correct', num: 'Numerical' }[k] || q.qtype;
 }
 function srcText(q) {
+  if (q.my) return 'My question';
   if (isRA(q)) return 'RA Plus · ' + (q.paper || '');
   if (isSC(q)) return 'Sri Chaitanya · ' + (q.source_ref || '').replace(/^SC /, '');
   if (/^FJ-/.test(q.id)) return 'FIITJEE · ' + (q.source_ref || '').replace(/^FIITJEE /, '');
@@ -160,6 +163,54 @@ function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^=
 function rng(seed) { let x = hash(String(seed)) || 1; return () => { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; }
 function shuffle(arr, r = Math.random) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
+/* ---------- the teacher's own questions ("My Questions → Written by me"), user_kv teach_my_questions ---------- */
+const MYQ_KEY = 'teach_my_questions';
+/* LaTeX-in-text → HTML: blank line = new paragraph, newline = line break; maths stays for MathJax. */
+function texToHtml(t) {
+  return String(t || '').trim().split(/\n\s*\n/).map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('');
+}
+async function myQuestions() { const all = await kvGet(MYQ_KEY, {}); return all && typeof all === 'object' ? all : {}; }
+async function saveMyQuestions(all) { return kvSet(MYQ_KEY, all); }
+/* One of my questions in the same shape as a bank question, so body()/keyText() and the worksheet can use it. */
+function myToQ(r) {
+  const kind = r.type === 'match' ? 'sc' : r.type === 'subj' ? 'subj' : r.type;
+  let ans = r.ans;
+  if (kind === 'num') ans = [parseFloat(String(r.ans).replace('−', '-'))];
+  return {
+    id: 'MY-' + r.id, my: true, track: r.track || 'adv', chapter_id: r.chapter_id || null, year: null, paper: null,
+    qtype: { sc: 'SC', mc: 'MC', num: 'NUM', match: 'MATCH', subj: 'SUBJ' }[r.type] || 'SC', passage_id: null,
+    stem_html: texToHtml(r.stem), options: ['sc', 'mc', 'match'].includes(r.type) ? (r.options || []).map(texToHtml) : null,
+    answer_key: { kind, ans, keytxt: kind === 'num' ? String(r.ans) : kind === 'subj' ? (r.ans || '') : undefined },
+    difficulty: r.difficulty || null, marks: r.marks || null, sol_html: r.solution ? texToHtml(r.solution) : '', source_ref: 'My question',
+  };
+}
+
+/* A handwritten board (note "Board · …", ink in localStorage mm_ink under "note:<id>") as an SVG for paper: dark ink, no background. */
+const INK_DARK = { '#eaf1ff': '#111827', '#22d3ee': '#0e7490', '#f5c542': '#b45309', '#ff6b6b': '#dc2626', '#4ade80': '#15803d' };
+function boards() {
+  try {
+    const notes = JSON.parse(localStorage.getItem('mm_notes') || '{}'), ink = JSON.parse(localStorage.getItem('mm_ink') || '{}');
+    return Object.entries(notes).filter(([id, n]) => !n.deleted && /^Board ·/.test(n.title || '') && ink['note:' + id] && !ink['note:' + id].deleted && (ink['note:' + id].s || []).length)
+      .map(([id, n]) => ({ id, title: n.title, updated: n.updated || 0 })).sort((a, b) => b.updated - a.updated);
+  } catch (e) { return []; }
+}
+function inkPaperSvg(noteId) {
+  let e; try { e = JSON.parse(localStorage.getItem('mm_ink') || '{}')['note:' + noteId]; } catch (x) { e = null; }
+  if (!e || !e.s || !e.s.length) return '';
+  let x0 = Infinity, y0 = Infinity, x1 = 0, y1 = 0;
+  for (const st of e.s) for (let i = 0; i < st.p.length; i += 3) { x0 = Math.min(x0, st.p[i]); x1 = Math.max(x1, st.p[i]); y0 = Math.min(y0, st.p[i + 1]); y1 = Math.max(y1, st.p[i + 1]); }
+  const pad = 16; x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(1000, x1 + pad); y1 += pad;
+  const paths = e.s.map(st => {
+    const p = st.p; let d = `M${p[0]} ${p[1]}`; if (p.length === 3) d += 'l0.1 0';
+    for (let i = 3; i < p.length; i += 3) d += `L${p[i]} ${p[i + 1]}`;
+    const avg = p.reduce((a, v, i) => (i % 3 === 2 ? a + v : a), 0) / (p.length / 3);
+    const w = st.t === 'h' ? st.w * 4 : st.w * (0.45 + 1.1 * avg / 100);
+    const col = st.t === 'h' ? (st.c === '#eaf1ff' ? '#facc15' : st.c) : (INK_DARK[st.c] || st.c);
+    return `<path d="${d}" stroke="${esc(col)}" stroke-width="${w.toFixed(1)}"${st.t === 'h' ? ' stroke-opacity=".4"' : ''}/>`;
+  }).join('');
+  return `<svg class="inkpaper" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" fill="none" stroke-linecap="round" stroke-linejoin="round" style="width:${Math.round((x1 - x0) / 10)}%">${paths}</svg>`;
+}
+
 window.MMK = { sb, S, pro, esc, toast, typeset, chrome, boot, fetchAll, fetchIn, chapters, kvGet, kvSet,
-  LET, kind, isRA, isSC, keyText, typeName, srcText, body, optLabel, hash, rng, shuffle };
+  LET, kind, isRA, isSC, keyText, texToHtml, boards, inkPaperSvg, myQuestions, saveMyQuestions, myToQ, typeName, srcText, body, optLabel, hash, rng, shuffle };
 })();
