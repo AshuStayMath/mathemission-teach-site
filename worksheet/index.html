@@ -36,7 +36,7 @@
 #pvwrap{position:fixed;inset:0;z-index:60;background:#0b1020e8;overflow:auto;padding:70px 12px 40px}
 #pvwrap .pbar{position:fixed;top:0;left:0;right:0;z-index:61;display:flex;gap:8px;justify-content:center;align-items:center;padding:12px;background:#060b1f;border-bottom:1px solid var(--line)}
 #pvwrap .pbar span{color:var(--muted);font-size:13px;margin-right:auto;padding-left:6px}
-#pvwrap #sheet{display:block;margin:0 auto;max-width:210mm}
+#pvwrap #sheet{display:block;margin:0 auto;width:210mm}
 #pvwrap #sheet .set{background:#fff;box-shadow:0 6px 30px #0008;padding:15mm 14mm 16mm;margin:0 auto 18px;min-height:250mm}
 #sheet{--ink:#14182b;--navy:#0b1f4d;--blue:#1d4fc4;--rule:#c9d3ea;--tint:#f2f6fd;--gold:#b7860b;
   color:var(--ink);font:10.6pt/1.5 "Source Serif 4","Latin Modern Roman",Georgia,serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -76,8 +76,10 @@
 #sheet .stem p{margin:0 0 1.5mm}
 #sheet .opts{display:grid;gap:1.2mm 6mm;margin:2mm 0 0;padding:0;list-style:none}
 #sheet .opts.c4{grid-template-columns:repeat(4,1fr)}#sheet .opts.c2{grid-template-columns:repeat(2,1fr)}#sheet .opts.c1{grid-template-columns:1fr}
-#sheet .opts li{display:flex;gap:2mm;align-items:baseline;min-width:0}
-#sheet .opts .ol{flex:none;font:700 8.4pt Inter,sans-serif;color:var(--navy)}
+#sheet .opts li{min-width:0;padding-left:7.2mm;text-indent:-7.2mm}
+#sheet .opts li>span:last-child{text-indent:0}
+#sheet .opts.c4 li>span:last-child,#sheet .opts.c2 li>span:last-child{white-space:nowrap}
+#sheet .opts .ol{display:inline-block;width:7.2mm;text-indent:0;font-weight:600;color:var(--navy)}
 #sheet .ansbox{display:inline-flex;align-items:center;gap:2mm;margin-top:2mm;font:600 8pt Inter,sans-serif;color:#6b7799}
 #sheet .ansbox i{display:inline-block;width:30mm;height:7mm;border:1px solid #9aa5c2;border-radius:1.5mm}
 #sheet table{border-collapse:collapse}
@@ -108,7 +110,7 @@
   body>*:not(#sheet):not(#pvwrap){display:none!important}
   #pvwrap{position:static;background:none;padding:0;overflow:visible}
   #pvwrap .pbar{display:none}
-  #pvwrap #sheet,#sheet{display:block;max-width:none}
+  #pvwrap #sheet,#sheet{display:block;max-width:none;width:auto}
   #sheet .set,#pvwrap #sheet .set{box-shadow:none;padding:0;margin:0;min-height:0;break-after:page}
   #sheet .set:last-child{break-after:auto}
 }
@@ -497,7 +499,6 @@ function markTxt(s) {
   return `+${s.plus}${s.minus ? ' / ' + s.minus : ' / 0'} each`;
 }
 function dateTxt() { try { return W.date ? new Date(W.date + 'T00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; } catch (e) { return ''; } }
-const plainLen = h => String(h || '').replace(/<[^>]+>/g, '').replace(/\\[a-zA-Z]+|[{}$\\^_]/g, '').length;
 /* Options: 4 across when they are short, 2 across for medium, one per line otherwise. */
 function optsHtml(q) {
   const k = K.kind(q);
@@ -508,9 +509,8 @@ function optsHtml(q) {
     return k === 'num' && W.answerBoxes ? '<div class="ansbox">Answer <i></i></div>' : '';
   }
   const html = q.options.map(o => (typeof o === 'string' ? o : (o.html || '')));
-  const long = Math.max(...html.map(plainLen)), hasBlock = html.some(h => /<(table|img|svg|div|p)\b|\\\[|\$\$|\\begin/.test(h));
-  const cls = hasBlock || long > (W.cols ? 26 : 48) ? 'c1' : long > (W.cols ? 10 : 18) ? 'c2' : 'c4';
-  return `<ol class="opts ${cls}">${html.map((h, j) => `<li><span class="ol">(${K.optLabel(q, j)})</span><span>${h}</span></li>`).join('')}</ol>`;
+  const block = html.some(h => /<(table|img|svg|div|p)\b|\\\[|\$\$|\\begin/.test(h));
+  return `<ol class="opts c1${block ? ' fixed' : ''}">${html.map((h, j) => `<li><span class="ol">(${K.optLabel(q, j)})</span><span>${h}</span></li>`).join('')}</ol>`;
 }
 function masthead(sub, setLabel) {
   return `<div class="mast"><img src="/logo-m-96.png" alt="">
@@ -561,6 +561,19 @@ async function buildSheet() {
   pageStyle();
   return el;
 }
+/* Options: measured after the maths is drawn. 4 across if every option fits a quarter of the line,
+   2 across if it fits half, otherwise one per line. */
+function layoutOpts(el) {
+  el.querySelectorAll('ol.opts:not(.fixed)').forEach(ol => {
+    ol.className = 'opts c1';
+    const room = ol.clientWidth, gap = 6 * 3.78;
+    const w = Math.max(...[...ol.querySelectorAll('li')].map(li => {
+      const r = document.createRange(); r.selectNodeContents(li.lastElementChild);
+      return li.firstElementChild.getBoundingClientRect().width + r.getBoundingClientRect().width;
+    }));
+    ol.className = 'opts ' + (w <= (room - 3 * gap) / 4 ? 'c4' : w <= (room - gap) / 2 ? 'c2' : 'c1');
+  });
+}
 /* Maths wider than its column is scaled down to fit (MathJax doesn't break lines). */
 function fitMaths(el) {
   el.querySelectorAll('mjx-container').forEach(m => {
@@ -582,6 +595,7 @@ async function preview() {
     document.body.style.overflow = 'hidden';
     await Promise.all([typeset(el), document.fonts ? document.fonts.ready : null]);
     await Promise.all([...el.querySelectorAll('img')].map(i => (i.complete ? null : new Promise(r => { i.onload = i.onerror = r; }))));
+    layoutOpts(el);
     fitMaths(el);
     const close = () => { document.body.style.overflow = ''; document.body.appendChild(el); el.innerHTML = ''; pv.remove(); };
     pv.querySelector('#pvClose').onclick = close;
