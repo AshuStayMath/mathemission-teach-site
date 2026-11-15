@@ -179,7 +179,7 @@ function myToQ(r) {
   return {
     id: 'MY-' + r.id, my: true, track: r.track || 'adv', chapter_id: r.chapter_id || null, year: null, paper: null,
     qtype: { sc: 'SC', mc: 'MC', num: 'NUM', match: 'MATCH', subj: 'SUBJ' }[r.type] || 'SC', passage_id: null,
-    stem_html: texToHtml(r.stem), options: ['sc', 'mc', 'match'].includes(r.type) ? (r.options || []).map(texToHtml) : null,
+    stem_html: texToHtml(r.stem), options: ['sc', 'mc', 'match'].includes(r.type) ? (r.options || []).map(o => esc(o).replace(/\n/g, '<br>')) : null,
     answer_key: { kind, ans, keytxt: kind === 'num' ? String(r.ans) : kind === 'subj' ? (r.ans || '') : undefined },
     difficulty: r.difficulty || null, marks: r.marks || null, sol_html: r.solution ? texToHtml(r.solution) : '', source_ref: 'My question',
   };
