@@ -122,7 +122,7 @@ function card(r) {
 
 /* ---------- editor ---------- */
 function openEditor(id) {
-  if (!id && !K.pro() && list().length >= FREE_MAX) return toast(`Free plan: up to ${FREE_MAX} questions of your own. Teach Pro (coming soon) is unlimited.`);
+  if (!id && !K.pro() && list().length >= FREE_MAX) return toast(`Free plan: up to ${FREE_MAX} questions of your own. Teach Pro is unlimited.`);
   EDIT = id || '';
   const r = id ? JSON.parse(JSON.stringify(ALL[id])) : { track: F.track || 'adv', chapter_id: F.chap || '', type: 'sc', stem: '', options: ['', '', '', ''], ans: 0, difficulty: 'Moderate', solution: '', marks: 4 };
   if (!r.options || r.options.length < 4) r.options = [...(r.options || []), '', '', '', ''].slice(0, 4);
