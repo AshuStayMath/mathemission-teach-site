@@ -144,9 +144,9 @@ const SRC = {
   main: { name: 'JEE Main PYQs', note: '2019–2026 shifts', years: true },
   adv: { name: 'JEE Advanced PYQs', note: '2006–2026 papers', years: true },
   ra: { name: 'Rankers Assignment Plus', note: 'RA Plus sets' },
-  sc: { name: 'Sri Chaitanya GTA', note: 'Grand tests', pro: true },
-  fj: { name: 'FIITJEE AITS', note: 'All India Test Series', pro: true },
-  nn: { name: 'Narayana GTA', note: 'Grand tests', pro: true },
+  sc: { name: 'Sri Chaitanya Style · GTA', note: 'Grand-test style', pro: true },
+  fj: { name: 'FIITJEE Style · AITS', note: 'All India Test Series style', pro: true },
+  nn: { name: 'Narayana Style · GTA', note: 'Grand-test style', pro: true },
   my: { name: 'My Questions', note: 'written by me' },
 };
 const ADV_SRCS = ['adv', 'ra', 'sc', 'fj', 'nn', 'my'];
@@ -307,7 +307,7 @@ function form() {
       <div class="seg" id="trk"><button data-v="adv" class="${t === 'adv' ? 'on' : ''}">JEE Advanced</button><button data-v="main" class="${t === 'main' ? 'on' : ''}">JEE Main</button></div>
       <label class="f">Sources <span class="pill2">(tick one or more)</span></label>
       <div class="srcgrid" id="srcs">${srcList().map(s => `<button class="srcb ${W.srcs.includes(s) ? 'on' : ''}" data-s="${s}"><span class="tk">${W.srcs.includes(s) ? '✓' : ''}</span><span><b>${SRC[s].name}</b><small>${SRC[s].note} · ${nSrc(s).toLocaleString()} questions</small></span></button>`).join('')}
-        ${lockedInst ? `<button class="srcb lock" id="instLock"><span class="tk">🔒</span><span><b>Institute test series</b><small>Sri Chaitanya, FIITJEE, Narayana · Teach Pro</small></span></button>` : ''}</div>
+        ${lockedInst ? `<button class="srcb lock" id="instLock"><span class="tk">🔒</span><span><b>Test-series style questions</b><small>FIITJEE Style, Narayana Style, Sri Chaitanya Style · Teach Pro</small></span></button>` : ''}</div>
       ${W.srcs.length > 1 ? `<label class="cb" style="margin-top:8px"><input type="checkbox" id="mix" ${W.mix ? 'checked' : ''}>Mix the sources evenly</label>` : ''}
       <label class="f">Chapters <span class="pill2">(tick any number; none = all chapters)</span></label>
       <div class="chipbar"><span class="mini">${W.chapters.length ? `${W.chapters.length} chapter${W.chapters.length > 1 ? 's' : ''} picked` : 'All chapters'}</span>${W.chapters.length ? '<button id="chClear">Clear</button>' : ''}</div>
@@ -337,7 +337,7 @@ function form() {
     else W.srcs = [...W.srcs, s].sort((a, b) => ADV_SRCS.indexOf(a) - ADV_SRCS.indexOf(b));
     form();
   });
-  if ($('#instLock')) $('#instLock').onclick = () => toast('Sri Chaitanya, FIITJEE and Narayana test questions come with Teach Pro.');
+  if ($('#instLock')) $('#instLock').onclick = () => toast('Test-series style questions (FIITJEE Style, Narayana Style, Sri Chaitanya Style) come with Teach Pro.');
   if ($('#mix')) $('#mix').onchange = e => { W.mix = e.target.checked; };
   app.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { const id = +b.dataset.c; W.chapters = W.chapters.includes(id) ? W.chapters.filter(x => x !== id) : [...W.chapters, id]; form(); });
   app.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
