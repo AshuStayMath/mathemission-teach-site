@@ -308,6 +308,7 @@ function form() {
       <label class="f">Sources <span class="pill2">(tick one or more)</span></label>
       <div class="srcgrid" id="srcs">${srcList().map(s => `<button class="srcb ${W.srcs.includes(s) ? 'on' : ''}" data-s="${s}"><span class="tk">${W.srcs.includes(s) ? '✓' : ''}</span><span><b>${SRC[s].name}</b><small>${SRC[s].note} · ${nSrc(s).toLocaleString()} questions</small></span></button>`).join('')}
         ${lockedInst ? `<button class="srcb lock" id="instLock"><span class="tk">🔒</span><span><b>Test-series style questions</b><small>FIITJEE Style, Narayana Style, Sri Chaitanya Style · Teach Pro</small></span></button>` : ''}</div>
+      ${t === 'adv' ? `<p class="small dim" style="margin-top:6px">“Style” labels describe the style of a question only, not an official institute paper. <a href="https://mathemission.in/content-disclaimer/" target="_blank" rel="noopener" style="color:var(--cyan)">Content disclaimer</a></p>` : ''}
       ${W.srcs.length > 1 ? `<label class="cb" style="margin-top:8px"><input type="checkbox" id="mix" ${W.mix ? 'checked' : ''}>Mix the sources evenly</label>` : ''}
       <label class="f">Chapters <span class="pill2">(tick any number; none = all chapters)</span></label>
       <div class="chipbar"><span class="mini">${W.chapters.length ? `${W.chapters.length} chapter${W.chapters.length > 1 ? 's' : ''} picked` : 'All chapters'}</span>${W.chapters.length ? '<button id="chClear">Clear</button>' : ''}</div>
