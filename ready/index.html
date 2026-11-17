@@ -338,7 +338,7 @@ async function lecture(ch, l) {
     const list = d.pyqs.map(p => `<article class="q"><header><span class="lab">JEE Advanced ${esc(p.tag)}</span></header><div class="stem">${p.stem_html}</div>
       ${p.question_id ? `<details class="ha dd" data-q="${esc(p.question_id)}"><summary>Deep Dive solution</summary><div class="ddb"><div class="dim small">Loading…</div></div></details>` : ''}</article>`).join('');
     app.innerHTML = head + `<div class="meta dim">${d.pyqs.length} JEE Advanced past questions · ${d.items.length ? d.items.length + ' E-questions · ' : ''}Deep Dive solution under each question</div>
-      <div class="pace">Use this lecture to close the chapter: go through the past questions in class. Open “Deep Dive solution” under a question for the key idea, hints, the full solution and the elegant way; students find the same solutions in Mathemission Study.</div>
+      <div class="pace">Use this lecture to close the chapter: go through the past questions in class. Open “Deep Dive solution” under a question for the key idea, hints, the full solution and the elegant way; students find the same solutions in MM Study.</div>
       ${d.items.length ? '<div class="part"><h3>E-set</h3>' + d.items.map(itemCard).join('') + '</div>' : ''}
       <div class="part"><h3>Past questions</h3>${list}</div>`;
     app.querySelectorAll('details.dd').forEach(dd => dd.addEventListener('toggle', () => { if (dd.open && !dd.dataset.done) { dd.dataset.done = 1; showSolution(dd); } }));
