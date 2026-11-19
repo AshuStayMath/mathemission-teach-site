@@ -327,7 +327,7 @@ async function lecture(ch, l) {
   }
   if (!canRead(l)) {
     app.innerHTML = head + `<div class="box"><h3>In this lecture</h3><ul class="small">${(l.topics || []).map(t => `<li>${mathy(t)}</li>`).join('')}</ul></div>
-      <div class="lock"><h3>Included in Teach Pro</h3><p>The Free plan includes Lecture 1 and the PYQ lecture of every chapter. The other Ready Lectures, with theory pages, E-sets, hints and answers, open with Teach Pro.</p><a class="btn" href="/?go=pro">See Teach Pro</a> <a class="btn" href="/">Back to Teach</a></div>`;;
+      <div class="lock"><h3>Included in Teach Pro</h3><p>The Free plan includes Lecture 1 and the PYQ lecture of every chapter. The other Ready Lectures, with theory pages, E-sets, hints and answers, open with Teach Pro.</p><a class="btn" href="/?go=pro">Try it free for 14 days</a> <a class="btn" href="/">Back to Teach</a></div>`;;
     return typeset(app);
   }
   app.innerHTML = head + '<div class="spin">Loading lecture…</div>';

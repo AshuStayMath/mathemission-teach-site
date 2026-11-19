@@ -95,7 +95,7 @@ function route() {
 }
 function locked(w) {
   app.innerHTML = `<div class="crumbs"><a href="#">Weekly Problem</a> › Week ${w}</div>
-    <div class="lock"><h3>Past problems come with Teach Pro</h3><p>The Free plan has this week’s problem. Teach Pro opens every past week, with your attempts and notes.</p><a class="btn" href="#">This week’s problem</a></div>`;
+    <div class="lock"><h3>Past problems come with Teach Pro</h3><p>The Free plan has this week’s problem. Teach Pro opens every past week, with your attempts and notes.</p><a class="btn" href="/?go=pro">Try Teach Pro free for 14 days</a> <a class="btn" href="#">This week’s problem</a></div>`;
 }
 
 let Q = null, SOL = null, T0 = 0, tick = null, ANS = null, HINTS = 0;

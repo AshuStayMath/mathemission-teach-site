@@ -338,7 +338,7 @@ function form() {
     else W.srcs = [...W.srcs, s].sort((a, b) => ADV_SRCS.indexOf(a) - ADV_SRCS.indexOf(b));
     form();
   });
-  if ($('#instLock')) $('#instLock').onclick = () => toast('Test-series style questions (FIITJEE Style, Narayana Style, Sri Chaitanya Style) come with Teach Pro.');
+  if ($('#instLock')) $('#instLock').onclick = () => toast('Test-series style questions (FIITJEE Style, Narayana Style, Sri Chaitanya Style) come with Teach Pro. Try it free for 14 days from the Teach home screen.');
   if ($('#mix')) $('#mix').onchange = e => { W.mix = e.target.checked; };
   app.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { const id = +b.dataset.c; W.chapters = W.chapters.includes(id) ? W.chapters.filter(x => x !== id) : [...W.chapters, id]; form(); });
   app.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
@@ -355,7 +355,7 @@ function form() {
   $('#avoid').onchange = e => { W.avoid = e.target.checked; form(); };
   $('#go').onclick = () => {
     if (!total()) return toast('Choose at least one question.');
-    if (total() > max) return toast(K.pro() ? `Up to ${PRO_MAX} questions per sheet.` : `Free plan: up to ${FREE_MAX} questions per sheet. Teach Pro allows ${PRO_MAX}.`);
+    if (total() > max) return toast(K.pro() ? `Up to ${PRO_MAX} questions per sheet.` : `Free plan: up to ${FREE_MAX} questions per sheet. Teach Pro allows ${PRO_MAX} (try it free for 14 days from the Teach home screen).`);
     build();
   };
   if ($('#back')) $('#back').onclick = sheet;
@@ -485,7 +485,7 @@ async function sheet() {
   $('#edit').onclick = $('#edit2').onclick = e => { e.preventDefault(); keep(); form(); };
   $('#again').onclick = () => { keep(); build(); };
   app.querySelectorAll('#sets button').forEach(b => b.onclick = () => {
-    if (+b.dataset.v > 1 && !K.pro()) return toast('Sets A, B, C come with Teach Pro.');
+    if (+b.dataset.v > 1 && !K.pro()) return toast('Sets A, B, C come with Teach Pro. Try it free for 14 days from the Teach home screen.');
     keep(); W.sets = +b.dataset.v; app.querySelectorAll('#sets button').forEach(x => x.classList.toggle('on', x === b));
   });
   app.querySelectorAll('.q [data-a]').forEach(b => b.onclick = () => { keep(); act(b.closest('.q').dataset.id, b.dataset.a); });
