@@ -69,8 +69,9 @@
 #sheet .secbar .mk{font:600 8.4pt Inter,sans-serif;color:#4a5677;white-space:nowrap}
 #sheet .cols{column-count:2;column-gap:9mm;column-rule:1px solid var(--rule)}
 /* questions */
-#sheet .pq{display:flex;gap:3mm;break-inside:avoid;margin:0 0 4.6mm}
-#sheet .pq .n{flex:none;width:7mm;height:7mm;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font:700 8.6pt Inter,sans-serif;margin-top:.3mm}
+#sheet .pq{display:flex;align-items:baseline;gap:2mm;break-inside:avoid;margin:0 0 4.6mm}
+#sheet .pq .n{flex:none;width:6.5mm;text-align:right;font:700 10.6pt/1.5 Inter,sans-serif;color:var(--blue);font-variant-numeric:tabular-nums}
+#sheet .pq .n::after{content:"."}
 #sheet .pq .b{flex:1;min-width:0}
 #sheet .pq .qsrc{font:600 7.2pt Inter,sans-serif;color:#7a86a6;letter-spacing:.04em;margin:-.4mm 0 1mm}
 #sheet .stem p{margin:0 0 1.5mm}

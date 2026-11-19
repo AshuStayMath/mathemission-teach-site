@@ -100,10 +100,10 @@
 
 % ---------- questions ----------
 \newcounter{qn}
-\newcommand{\Qcircle}[1]{\tikz[baseline=(c.base)]\node[circle,fill=mmnavy,text=white,inner sep=0pt,minimum size=6.2mm,font=\sffamily\bfseries\footnotesize](c){#1};}
+\newcommand{\Qcircle}[1]{{\sffamily\bfseries\color{mmblue}#1.}}% plain blue number (no circle)
 \newenvironment{qbody}{\begin{list}{}{\leftmargin=9mm\labelwidth=7mm\labelsep=2mm\itemsep=0pt\topsep=0pt}}{\end{list}}
 % Questions sit 9 mm in from the margin; the number hangs in that space.
-\newcommand{\Q}{\par\vspace{3.2mm}\stepcounter{qn}\leftskip=9mm\noindent\llap{\makebox[9mm][l]{\Qcircle{\theqn}}}\ignorespaces}
+\newcommand{\Q}{\par\vspace{3.2mm}\stepcounter{qn}\leftskip=9mm\noindent\llap{\makebox[9mm][r]{\Qcircle{\theqn}\hspace{2.5mm}}}\ignorespaces}
 \newcommand{\Marks}[1]{\hfill{\sffamily\bfseries\footnotesize\color{mmnavy}[#1]}}   % e.g. \Marks{4} for subjective
 \newcommand{\Opt}[1]{{\sffamily\bfseries\small\color{mmnavy}(#1)}~}
 \newcommand{\OptFour}[4]{\par\vspace{1mm}\noindent\begin{tabularx}{\dimexpr\linewidth-\leftskip}{@{}XXXX@{}}\Opt{A}#1&\Opt{B}#2&\Opt{C}#3&\Opt{D}#4\end{tabularx}\par}
