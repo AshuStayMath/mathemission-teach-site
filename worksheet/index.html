@@ -46,6 +46,7 @@
 #sheet .mast{display:flex;align-items:center;gap:12px;padding-bottom:9px;border-bottom:2.2px solid var(--navy);position:relative}
 #sheet .mast::after{content:"";position:absolute;left:0;bottom:-5px;width:46mm;height:2px;background:var(--gold)}
 #sheet .mast img{width:13mm;height:13mm;border-radius:3mm;flex:none}
+#sheet .mast img.own{width:auto;height:auto;max-height:15mm;max-width:45mm;border-radius:0;object-fit:contain}
 #sheet .mast .who{flex:1;min-width:0}
 #sheet .mast .inst{font:800 15.5pt/1.15 Inter,sans-serif;color:var(--navy);letter-spacing:.01em}
 #sheet .mast .sub{font:600 8.4pt/1.3 Inter,sans-serif;color:#5a6788;letter-spacing:.14em;text-transform:uppercase;margin-top:2px}
@@ -168,6 +169,8 @@ const DIFF = { any: null, easy: [.5, .4, .1], balanced: [.3, .5, .2], hard: [.1,
 const DNAME = ['Easy', 'Moderate', 'Difficult'];
 
 let CH = [], META = [], FULL = {}, SAVED = [], PREFS = {}, MYQ = {};
+/* Sheet logo (Teach Pro): { mode: 'mm' | 'own' | 'none', img: data URL }. Its own user_kv key so prefs stay small. */
+let LOGO = { mode: 'mm', img: '' };
 const W = {
   id: null, title: '', track: 'adv', srcs: ['adv'], chapters: [], yFrom: 2006, yTo: 2026, diff: 'balanced', order: 'easy', avoid: true, mix: true,
   counts: { main: { sc: 20, num: 5, subj: 0 }, adv: { sc: 4, mc: 4, num: 4, match: 0, subj: 0 } }, marking: true,
@@ -196,6 +199,7 @@ const INTRO = `<h1><small>Mathemission Teach</small>Worksheet &amp; Test Builder
           q => q.eq('status', 'teach').order('id'))) : rows),
       K.kvGet('teach_worksheets', []),
       K.kvGet('teach_sheet_prefs', {}),
+      K.kvGet('teach_sheet_logo', null).then(l => { if (l && l.mode) LOGO = l; }),
       K.myQuestions().then(m => { MYQ = m; })
     ]);
   } catch (e) { app.innerHTML = INTRO + `<div class="lock"><h3>Couldn’t load the question bank</h3><p>${esc(e.message)}</p></div>`; return; }
@@ -449,6 +453,7 @@ async function sheet() {
       <h3>Header and printing</h3>
       <div class="row"><div><label class="f">Institute / school</label><input class="i" id="inst" value="${esc(W.inst)}" placeholder="e.g. Bright Future Academy"></div>
         <div><label class="f">Teacher</label><input class="i" id="teacher" value="${esc(W.teacher)}" placeholder="Your name"></div></div>
+      ${logoBox()}
       <div class="row3"><div><label class="f">Batch / class</label><input class="i" id="batch" value="${esc(W.batch)}" placeholder="XII-A JEE"></div>
         <div><label class="f">Date</label><input class="i" id="date" type="date" value="${W.date || new Date().toISOString().slice(0, 10)}"></div>
         <div><label class="f">Time (minutes)</label><input class="i" id="min" type="number" min="5" value="${W.minutes}"></div></div>
@@ -496,6 +501,75 @@ async function sheet() {
   $('#addInk').onclick = () => { keep(); pickBoard(); };
   $('#save').onclick = async () => { keep(); await save(); };
   $('#pvbtn').onclick = async () => { keep(); savePrefs(); await preview(); };
+  wireLogo(app);
+}
+
+/* ---------- sheet logo (Teach Pro) ---------- */
+const logoMode = () => (K.pro() ? LOGO.mode : 'mm');
+function logoBox() {
+  const m = logoMode(), lock = K.pro() ? '' : ' 🔒';
+  return `<label class="f">Logo on the sheet${K.pro() ? '' : '<span class="lockt">Pro</span>'}</label>
+    <div class="seg" id="logoSeg">
+      <button data-v="mm" class="${m === 'mm' ? 'on' : ''}">Mathemission logo</button>
+      <button data-v="own" class="${m === 'own' ? 'on' : ''}">My logo${lock}</button>
+      <button data-v="none" class="${m === 'none' ? 'on' : ''}">No logo${lock}</button></div>
+    <div id="logoOwn" style="display:${m === 'own' ? 'flex' : 'none'};align-items:center;gap:12px;margin-top:8px">
+      <span style="width:120px;height:52px;background:#fff;border-radius:8px;display:grid;place-items:center;flex:none;overflow:hidden">${LOGO.img ? `<img src="${LOGO.img}" alt="" style="max-width:110px;max-height:46px">` : '<span class="small" style="color:#6b7799">No logo yet</span>'}</span>
+      <span><button class="btn ghost" id="logoUp" type="button">${LOGO.img ? 'Change logo' : 'Upload your logo'}</button>
+        <input type="file" id="logoFile" accept="image/*" hidden>
+        <p class="small dim" style="margin:4px 0 0">A JPG, PNG or a WhatsApp photo of your letterhead logo is fine. White edges are trimmed and it is made small for printing.</p></span></div>`;
+}
+function wireLogo(root) {
+  root.querySelectorAll('#logoSeg button').forEach(b => b.onclick = async () => {
+    const v = b.dataset.v;
+    if (v !== 'mm' && !K.pro()) return toast('Your own logo (or no logo) comes with Teach Pro. Try it free for 14 days from the Teach home screen.');
+    LOGO.mode = v; root.querySelectorAll('#logoSeg button').forEach(x => x.classList.toggle('on', x === b));
+    const own = root.querySelector('#logoOwn'); own.style.display = v === 'own' ? 'flex' : 'none';
+    if (v === 'own' && !LOGO.img) return root.querySelector('#logoFile').click();
+    await saveLogo();
+  });
+  const f = root.querySelector('#logoFile'), up = root.querySelector('#logoUp');
+  if (up) up.onclick = () => f.click();
+  if (f) f.onchange = async () => {
+    const file = f.files && f.files[0]; if (!file) return;
+    if (!/^image\//.test(file.type)) return toast('Please choose an image (JPG or PNG).');
+    try { LOGO.img = await shrinkLogo(file); LOGO.mode = 'own'; } catch (e) { return toast('Couldn’t read that image. Try a JPG or PNG.'); }
+    await saveLogo();
+    const box = document.createElement('div'); box.innerHTML = logoBox();
+    const seg = root.querySelector('#logoSeg'); seg.previousElementSibling.remove(); root.querySelector('#logoOwn').remove();
+    seg.replaceWith(...box.childNodes); wireLogo(root);
+  };
+}
+async function saveLogo() { toast(await K.kvSet('teach_sheet_logo', LOGO) ? 'Logo saved to your account.' : 'Logo saved on this device only (couldn’t reach your account).'); }
+/* Trim white / transparent edges, then shrink to at most 480 × 200 px. PNG keeps transparency; photos become JPEG. */
+function shrinkLogo(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('bad image')); };
+    im.onload = () => {
+      URL.revokeObjectURL(url);
+      const s0 = Math.min(1, 1600 / Math.max(im.width, im.height));
+      const c = document.createElement('canvas'); c.width = Math.round(im.width * s0); c.height = Math.round(im.height * s0);
+      const x = c.getContext('2d'); x.drawImage(im, 0, 0, c.width, c.height);
+      const d = x.getImageData(0, 0, c.width, c.height).data;
+      let alpha = false, t = c.height, b = -1, l = c.width, r = -1;
+      for (let y = 0; y < c.height; y++) for (let xx = 0; xx < c.width; xx++) {
+        const i = (y * c.width + xx) * 4, a = d[i + 3];
+        if (a < 250) alpha = true;
+        if (a > 16 && !(d[i] > 238 && d[i + 1] > 238 && d[i + 2] > 238)) { if (y < t) t = y; if (y > b) b = y; if (xx < l) l = xx; if (xx > r) r = xx; }
+      }
+      if (b < 0) { t = 0; l = 0; b = c.height - 1; r = c.width - 1; }
+      const pad = Math.round(Math.max(r - l, b - t) * 0.02);
+      l = Math.max(0, l - pad); t = Math.max(0, t - pad); r = Math.min(c.width - 1, r + pad); b = Math.min(c.height - 1, b + pad);
+      const w = r - l + 1, h = b - t + 1, s1 = Math.min(1, 480 / w, 200 / h);
+      const o = document.createElement('canvas'); o.width = Math.max(1, Math.round(w * s1)); o.height = Math.max(1, Math.round(h * s1));
+      const ox = o.getContext('2d');
+      if (!alpha) { ox.fillStyle = '#fff'; ox.fillRect(0, 0, o.width, o.height); }
+      ox.imageSmoothingQuality = 'high'; ox.drawImage(c, l, t, w, h, 0, 0, o.width, o.height);
+      res(alpha ? o.toDataURL('image/png') : o.toDataURL('image/jpeg', 0.88));
+    };
+    im.src = url;
+  });
 }
 
 async function act(id, a) {
@@ -623,8 +697,9 @@ function optsHtml(q) {
   return `<ol class="opts c1${block ? ' fixed' : ''}">${html.map((h, j) => `<li><span class="ol">(${K.optLabel(q, j)})</span><span>${h}</span></li>`).join('')}</ol>`;
 }
 function masthead(sub, setLabel) {
-  return `<div class="mast"><img src="/logo-m-96.png" alt="">
-    <div class="who"><div class="inst">${esc(W.inst || 'Mathemission')}</div><div class="sub">${esc(sub)}</div></div>
+  const m = logoMode(), img = m === 'mm' ? '<img src="/logo-m-96.png" alt="">' : m === 'own' && LOGO.img ? `<img class="own" src="${LOGO.img}" alt="">` : '';
+  return `<div class="mast${img ? '' : ' nologo'}">${img}
+    <div class="who"><div class="inst">${esc(W.inst || (m === 'mm' ? 'Mathemission' : W.teacher || ''))}</div><div class="sub">${esc(sub)}</div></div>
     ${setLabel ? `<div class="setb">SET<b>${setLabel}</b></div>` : ''}</div>`;
 }
 function setHtml(k) {
