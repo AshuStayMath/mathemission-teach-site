@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#060b1f">
 <meta name="robots" content="noindex">
-<title>AK's Lecturing Notes · Mathemission Teach</title>
+<title>MM Lecturing Notes · Mathemission Teach</title>
 <link rel="icon" href="/favicon-64.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <script>
@@ -111,7 +111,7 @@ h1,h2{letter-spacing:-.015em}
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="/"><span class="logo">M</span><span>Mathemission Teach<small>AK's Lecturing Notes</small></span></a>
+  <a class="brand" href="/"><span class="logo">M</span><span>Mathemission Teach<small>MM Lecturing Notes</small></span></a>
   <span id="plan" class="plan hidden"></span>
 </header>
 <main class="wrap" id="app"><div class="spin">Loading…</div></main>
@@ -155,7 +155,7 @@ const pageFile = (slug, n) => `${slug}/${slug[0]}-${String(n).padStart(2, '0')}.
 async function boot() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) {
-    app.innerHTML = `<h1><small>Mathemission Teach</small>AK's Lecturing Notes</h1>
+    app.innerHTML = `<h1><small>Mathemission Teach</small>MM Lecturing Notes</h1>
       <p class="lead">The complete JEE Advanced lecturing notes as a book: theory pages, E-questions with hints and answers, and a PYQ lecture for each chapter.</p>
       <div class="lock"><h3>Sign in first</h3><p>Open Mathemission Teach, sign in, then come back here.</p><a class="btn" href="/">Open Teach</a></div>`;
     return;
@@ -206,6 +206,48 @@ function wireDevices(root) {
   });
 }
 
+const PDF_FREE = ['circles', 'quadratic'];
+const canPdf = slug => S.admin || S.plan === 'pro' || PDF_FREE.includes(slug);
+let pdfLibP = null;
+const pdfLib = () => pdfLibP || (pdfLibP = new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js'; sc.onload = () => ok(window.PDFLib); sc.onerror = () => { pdfLibP = null; no(new Error('Couldn’t load the PDF tool. Check your connection and try again.')); }; document.head.appendChild(sc); }));
+// Download a PDF from the private bucket and stamp every page with the teacher's email before saving.
+async function downloadPdf(file, title, btn) {
+  const label = btn.textContent; btn.disabled = true; btn.textContent = 'Preparing your copy…';
+  try {
+    const [{ data, error }, L] = await Promise.all([sb.storage.from('ready-pdfs').download(file), pdfLib()]);
+    if (error || !data) throw new Error(S.plan === 'pro' || S.admin ? 'This PDF isn’t available yet.' : 'This PDF comes with Teach Pro.');
+    const doc = await L.PDFDocument.load(await data.arrayBuffer());
+    const font = await doc.embedFont(L.StandardFonts.Helvetica);
+    const who = S.user.email, foot = `Prepared for ${who} · MM Lecturing Notes · mathemission.in · not for distribution`;
+    doc.getPages().forEach((pg, i) => {
+      const { width: W, height: H } = pg.getSize();
+      const fw = font.widthOfTextAtSize(foot, 7);
+      pg.drawText(foot, { x: (W - fw) / 2, y: 10, size: 7, font, color: L.rgb(0.45, 0.45, 0.5) });
+      if (i > 0) pg.drawText(who, { x: W * 0.16, y: H * 0.3, size: 30, font, color: L.rgb(0.55, 0.6, 0.7), opacity: 0.07, rotate: L.degrees(35) });
+    });
+    doc.setTitle(`${title} · MM Lecturing Notes`); doc.setAuthor('Ashutosh Kumar (AK) · Mathemission'); doc.setSubject(`Prepared for ${who}`); doc.setKeywords([who]);
+    const out = await doc.save();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out], { type: 'application/pdf' }));
+    a.download = `MM Lecturing Notes - ${title}.pdf`; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+    toast('Your copy is ready. It carries your email on every page.');
+  } catch (e) { toast(e.message || 'Couldn’t prepare the PDF. Try again.'); }
+  btn.disabled = false; btn.textContent = label;
+}
+function wirePdf(root) { root.querySelectorAll('[data-pdf]').forEach(b => b.onclick = () => downloadPdf(b.dataset.pdf, b.dataset.title, b)); }
+
+function readAll(ch) {
+  const ls = S.lectures.filter(l => l.chapter_slug === ch.slug && !isPyq(l));
+  const head = `<div class="crumbs"><a href="#/">MM Lecturing Notes</a> › <a href="#/${ch.slug}">${esc(ch.name)}</a> ›</div><h2><small>${esc(ch.name)}</small>Read the whole chapter</h2>`;
+  if (!ls.some(canRead)) { app.innerHTML = head + '<div class="lock"><h3>This chapter is in Teach Pro</h3><p>Circles and Quadratic Equations are free. Every other chapter of the book, and the full PDF, open with Teach Pro.</p><a class="btn" href="/?go=pro">Try it free for 14 days</a></div>'; return; }
+  const list = [...new Set(ls.filter(canRead).flatMap(l => l.all_pages || []))].sort((a, b) => a - b);
+  app.innerHTML = head + `<div class="meta dim">${list.length} pages, the chapter as it reads in the book. The E-sets with hints and answers are in each lecture.</div>
+    ${canPdf(ch.slug) ? `<div class="actions"><button class="btn" data-pdf="${ch.slug}.pdf" data-title="${esc(ch.name)}">Download this chapter (PDF)</button><a class="btn ghost" href="#/${ch.slug}">Teach it lecture by lecture</a></div>` : ''}
+    ${pages(ch, list, { open: true, text: `${esc(ch.name)} · ${list.length} pages` })}`;
+  app.addEventListener('contextmenu', e => { if (e.target.closest('figure.pg')) e.preventDefault(); });
+  wirePdf(app); watchPages(app);
+}
+
 function route() {
   const [slug, n] = location.hash.replace(/^#\/?/, '').split('/');
   window.scrollTo(0, 0);
@@ -213,6 +255,7 @@ function route() {
   const ch = S.chapters.find(c => c.slug === slug);
   if (!ch) return home();
   if (!n) return chapter(ch);
+  if (n === 'read') return readAll(ch);
   const lec = S.lectures.find(l => l.chapter_slug === slug && String(l.n) === n);
   return lec ? lecture(ch, lec) : chapter(ch);
 }
@@ -232,13 +275,14 @@ function home() {
       <div class="meta">${nl} lectures + PYQ lecture · JEE Advanced</div></a>`;
   }).join('');
   const nPub = S.chapters.filter(c => c.status === 'published').length;
-  app.innerHTML = `<h1><small>Mathemission Teach</small>AK's Lecturing Notes</h1>
+  app.innerHTML = `<h1><small>Mathemission Teach</small>MM Lecturing Notes</h1>
     <p class="lead">The complete JEE Advanced lecturing notes as one book, for your own preparation: theory pages, the E-set for each lecture with hints and the answer, and a PYQ lecture for each chapter. ${nPub} of ${all.length} chapters are ready; the book grows with every update.</p>
     ${S.plan !== 'pro' && !S.admin ? '<div class="pace"><b>Free plan:</b> Circles and Quadratic Equations are open in full. Every other chapter, every new chapter as it is added, and the full PDF of the book come with <a href="/?go=pro">Teach Pro</a>.</div>' : '<div class="pace"><b>Teach Pro:</b> the whole book is open to you, including every new chapter as it is added and the full PDF of the book.</div>'}
+    ${S.plan === 'pro' || S.admin ? '<div class="actions"><button class="btn" data-pdf="book.pdf" data-title="Full edition">Download the full book (PDF)</button><span class="dim small" style="align-self:center">Your copy carries your email on every page.</span></div>' : ''}
     ${deviceBox()}<div class="pace">${PACE}</div>
     <div class="grid two">${rows || '<p class="dim">No chapters published yet.</p>'}</div>
     <p class="dim small" style="margin-top:14px">The book is JEE Advanced only. Want JEE Main practice as well? Add questions from the Practice Vault in <a href="/">Question Sets</a>.</p>`;
-  wireDevices(app);
+  wireDevices(app); wirePdf(app);
 }
 
 function chapter(ch) {
@@ -253,11 +297,12 @@ function chapter(ch) {
   }).join('');
   const cb = ch.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : (chFree(ch.slug) ? '<span class="tag t-free">Free</span>' : '<span class="tag t-pro">Pro</span>');
   const locked = !ls.some(canRead);
-  app.innerHTML = `<div class="crumbs"><a href="#/">AK's Lecturing Notes</a> ›</div>
+  app.innerHTML = `<div class="crumbs"><a href="#/">MM Lecturing Notes</a> ›</div>
     <h1><small>JEE Advanced</small>${esc(ch.name)}${cb}</h1>
     ${locked ? '<div class="lock"><h3>This chapter is in Teach Pro</h3><p>Circles and Quadratic Equations are free. Every other chapter of the book, and the full PDF, open with Teach Pro.</p><a class="btn" href="/?go=pro">Try it free for 14 days</a></div>' : ''}
-    ${deviceBox()}<div class="pace">${PACE}</div><div class="grid">${rows}</div>`;
-  wireDevices(app); typeset(app);
+    ${locked ? '' : `<div class="actions"><a class="btn" href="#/${ch.slug}/read">Read the whole chapter</a>${canPdf(ch.slug) ? `<button class="btn ghost" data-pdf="${ch.slug}.pdf" data-title="${esc(ch.name)}">Download this chapter (PDF)</button>` : ''}</div>`}
+    ${deviceBox()}<h3 style="margin:14px 0 6px">Teach it lecture by lecture</h3><div class="pace">${PACE}</div><div class="grid">${rows}</div>`;
+  wireDevices(app); wirePdf(app); typeset(app);
 }
 
 async function load(l) {
@@ -338,14 +383,14 @@ async function showSolution(dd) {
 
 function planText(ch, l, d, A, B, ta, tb) {
   const line = e => `  - ${e.label.split('·').pop().trim()} ${e.title.replace(/\$/g, '')} (${e.minutes || '?'} min)`;
-  return [`${ch.name} · Lecture ${l.n}: ${l.title}`, `JEE Advanced · AK's Lecturing Notes · 2 hours`, '',
+  return [`${ch.name} · Lecture ${l.n}: ${l.title}`, `JEE Advanced · MM Lecturing Notes · 2 hours`, '',
     `${l.n}A (about ${ta} min)`, `  - Theory: ${(l.topics || []).join('; ')} (${l.theory_min} min)`, ...A.map(line), '',
     `${l.n}B (about ${tb} min)`, ...(B.length ? B.map(line) : ['  - (carry over / revision)']), '',
     'Split it differently or speed up to suit your class’s pace and time.'].join('\n');
 }
 
 async function lecture(ch, l) {
-  const head = `<div class="crumbs"><a href="#/">AK's Lecturing Notes</a> › <a href="#/${ch.slug}">${esc(ch.name)}</a> ›</div>
+  const head = `<div class="crumbs"><a href="#/">MM Lecturing Notes</a> › <a href="#/${ch.slug}">${esc(ch.name)}</a> ›</div>
     <h2><small>${esc(ch.name)} · Lecture ${l.n}</small>${mathy(l.title)}${l.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : ''}</h2>`;
   if (!canRead(l) && S.plan === 'pro' && !S.device.ok) {
     app.innerHTML = head + deviceBox(); wireDevices(app); return typeset(app);
