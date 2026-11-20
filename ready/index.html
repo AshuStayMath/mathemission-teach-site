@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#060b1f">
 <meta name="robots" content="noindex">
-<title>Ready Lectures · Mathemission Teach</title>
+<title>AK's Lecturing Notes · Mathemission Teach</title>
 <link rel="icon" href="/favicon-64.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <script>
@@ -56,6 +56,9 @@ a.card:hover,button.card:hover{border-color:var(--cyan);box-shadow:0 0 16px #22d
 .t-pro{background:#f5c5421f;color:var(--gold);border:1px solid #f5c54277}
 .t-draft{background:#ef44441f;color:#ff8a8a;border:1px solid #ef444466}
 .t-pyq{background:#22d3ee1a;color:var(--cyan);border:1px solid #22d3ee66}
+.t-prog{background:#3b82f61f;color:#93c5fd;border:1px solid #3b82f666}
+.t-soon{background:#94a3b81a;color:var(--muted);border:1px solid #94a3b855}
+.card.soon{opacity:.62;cursor:default}
 .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:10px;overflow-x:auto}
 .box h3{font-size:14px;color:var(--cyan);margin:2px 0 6px}.box ul,.box ol{padding-left:20px}.small{font-size:13.5px}
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
@@ -108,7 +111,7 @@ h1,h2{letter-spacing:-.015em}
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="/"><span class="logo">M</span><span>Mathemission Teach<small>Ready Lectures</small></span></a>
+  <a class="brand" href="/"><span class="logo">M</span><span>Mathemission Teach<small>AK's Lecturing Notes</small></span></a>
   <span id="plan" class="plan hidden"></span>
 </header>
 <main class="wrap" id="app"><div class="spin">Loading…</div></main>
@@ -135,14 +138,25 @@ const typeset = async el => { for (let i = 0; i < 50 && !(window.MathJax && Math
 const canRead = l => S.admin || (l.status === 'published' && (l.is_free || (S.plan === 'pro' && S.device.ok)));
 const deviceLabel = () => { const u = navigator.userAgent; const b = /Edg\//.test(u) ? 'Edge' : /OPR\//.test(u) ? 'Opera' : /SamsungBrowser/.test(u) ? 'Samsung Internet' : /Firefox\//.test(u) ? 'Firefox' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : 'Browser';
   const o = /iPhone/.test(u) ? 'iPhone' : /iPad/.test(u) ? 'iPad' : /Android/.test(u) ? 'Android' : /Windows/.test(u) ? 'Windows' : /Mac OS X/.test(u) ? 'Mac' : /Linux/.test(u) ? 'Linux' : 'device'; return `${b} on ${o}`; };
+// The whole book, in reading order. Published chapters come from ready_chapters; the rest show their status.
+const BOOK = [
+  { o: 1.5, name: 'Trigonometric Ratios and Identities', st: 'soon' }, { o: 1.6, name: 'Trigonometric Equations', st: 'soon' },
+  { o: 1.7, name: 'Inverse Trigonometric Functions', st: 'soon' }, { o: 1.8, name: 'Properties of Triangle', st: 'soon' },
+  { o: 7, name: 'Sequences and Series', st: 'prog' }, { o: 14, name: 'Hyperbola', st: 'prog' },
+  { o: 15, name: 'Matrices and Determinants', st: 'prog' }, { o: 16, name: 'Limits, Continuity and Differentiability', st: 'prog' },
+  { o: 17, name: 'Applications of Derivatives', st: 'prog' }, { o: 19, name: 'Indefinite Integration', st: 'soon' },
+  { o: 21, name: 'Area under Curves', st: 'soon' }, { o: 22, name: 'Differential Equations', st: 'soon' },
+  { o: 24, name: 'Vectors and 3D Geometry', st: 'soon' }
+];
+const chFree = slug => { const ls = S.lectures.filter(l => l.chapter_slug === slug && l.status === 'published'); return ls.length > 0 && ls.every(l => l.is_free); };
 const isPyq = l => !l.theory_min && l.n === Math.max(...S.lectures.filter(x => x.chapter_slug === l.chapter_slug).map(x => x.n));
 const pageFile = (slug, n) => `${slug}/${slug[0]}-${String(n).padStart(2, '0')}.jpg`;
 
 async function boot() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) {
-    app.innerHTML = `<h1><small>Mathemission Teach</small>Mathemission Ready Lectures</h1>
-      <p class="lead">Ready-to-teach JEE Advanced lectures: theory pages, E-questions with hints and answers, and a PYQ lecture for each chapter.</p>
+    app.innerHTML = `<h1><small>Mathemission Teach</small>AK's Lecturing Notes</h1>
+      <p class="lead">The complete JEE Advanced lecturing notes as a book: theory pages, E-questions with hints and answers, and a PYQ lecture for each chapter.</p>
       <div class="lock"><h3>Sign in first</h3><p>Open Mathemission Teach, sign in, then come back here.</p><a class="btn" href="/">Open Teach</a></div>`;
     return;
   }
@@ -163,7 +177,7 @@ async function boot() {
     sb.from('ready_chapters').select('*').order('syllabus_order'),
     sb.from('ready_lectures').select('id,chapter_slug,n,title,topics,theory_min,total_min,split_at,theory_pages,all_pages,formulas,concepts,is_free,status').order('n')
   ]);
-  if (c.error || l.error) { app.innerHTML = `<div class="lock"><h3>Couldn’t load Ready Lectures</h3><p>${esc((c.error || l.error).message)}</p></div>`; return; }
+  if (c.error || l.error) { app.innerHTML = `<div class="lock"><h3>Couldn’t load the book</h3><p>${esc((c.error || l.error).message)}</p></div>`; return; }
   S.chapters = c.data; S.lectures = l.data;
   if (!S.admin && S.lectures.some(x => x.status === 'draft')) S.admin = true;   // only admins can see drafts (RLS)
   window.addEventListener('hashchange', route);
@@ -181,7 +195,7 @@ function deviceBox() {
   const when = t => new Date(t).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
   const rows = (S.device.devices || []).map(d => `<li><span>${esc(d.label || 'Device')}<br><small class="dim">last used ${when(d.last_seen)}</small></span><button class="btn ghost" data-drop="${esc(d.id)}">Sign out that device</button></li>`).join('');
   return `<div class="dev"><h3>Teach Pro is open on ${S.device.max} other devices</h3>
-    <p class="small dim">One Teach Pro account works on up to ${S.device.max} devices. Sign out one of them to use Pro lectures here. Lecture 1 of every chapter still opens on this device.</p><ul>${rows}</ul></div>`;
+    <p class="small dim">One Teach Pro account works on up to ${S.device.max} devices. Sign out one of them to use the Pro chapters here. The free chapters still open on this device.</p><ul>${rows}</ul></div>`;
 }
 function wireDevices(root) {
   root.querySelectorAll('[data-drop]').forEach(b => b.onclick = async () => {
@@ -204,18 +218,26 @@ function route() {
 }
 
 function home() {
-  const rows = S.chapters.map(c => {
-    const ls = S.lectures.filter(l => l.chapter_slug === c.slug);
-    const nl = ls.filter(l => !isPyq(l)).length;
-    return `<a class="card" href="#/${c.slug}"><h3>${esc(c.name)}${c.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : ''}</h3>
+  const pub = S.chapters.map(c => ({ o: c.syllabus_order, c }));
+  const soonNames = new Set(S.chapters.map(c => c.name.toLowerCase()));
+  const all = pub.concat(BOOK.filter(b => !soonNames.has(b.name.toLowerCase()))).sort((a, b) => a.o - b.o);
+  let k = 0;
+  const rows = all.map(x => {
+    k++;
+    if (!x.c) return `<div class="card soon"><h3><span class="dim">${k}.</span> ${esc(x.name)}${x.st === 'prog' ? '<span class="tag t-prog">In progress</span>' : '<span class="tag t-soon">Coming soon</span>'}</h3>
+      <div class="meta">${x.st === 'prog' ? 'Being written now. It opens here as soon as it is ready.' : 'Planned for a coming update of the book.'}</div></div>`;
+    const c = x.c, ls = S.lectures.filter(l => l.chapter_slug === c.slug), nl = ls.filter(l => !isPyq(l)).length;
+    const badge = c.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : (chFree(c.slug) ? '<span class="tag t-free">Free</span>' : '<span class="tag t-pro">Pro</span>');
+    return `<a class="card" href="#/${c.slug}"><h3><span class="dim">${k}.</span> ${esc(c.name)}${badge}</h3>
       <div class="meta">${nl} lectures + PYQ lecture · JEE Advanced</div></a>`;
   }).join('');
-  app.innerHTML = `<h1><small>Mathemission Teach</small>Mathemission Ready Lectures</h1>
-    <p class="lead">Ready-to-teach JEE Advanced lectures, for your own preparation: theory pages, the E-set for each lecture with hints and the answer, and a PYQ lecture for each chapter.</p>
+  const nPub = S.chapters.filter(c => c.status === 'published').length;
+  app.innerHTML = `<h1><small>Mathemission Teach</small>AK's Lecturing Notes</h1>
+    <p class="lead">The complete JEE Advanced lecturing notes as one book, for your own preparation: theory pages, the E-set for each lecture with hints and the answer, and a PYQ lecture for each chapter. ${nPub} of ${all.length} chapters are ready; the book grows with every update.</p>
+    ${S.plan !== 'pro' && !S.admin ? '<div class="pace"><b>Free plan:</b> Circles and Quadratic Equations are open in full. Every other chapter, every new chapter as it is added, and the full PDF of the book come with <a href="/?go=pro">Teach Pro</a>.</div>' : '<div class="pace"><b>Teach Pro:</b> the whole book is open to you, including every new chapter as it is added and the full PDF of the book.</div>'}
     ${deviceBox()}<div class="pace">${PACE}</div>
     <div class="grid two">${rows || '<p class="dim">No chapters published yet.</p>'}</div>
-    <p class="dim small" style="margin-top:14px">Ready Lectures are JEE Advanced only. Want JEE Main practice as well? Add questions from the Practice Vault in <a href="/">Question Sets</a>.</p>
-    ${S.plan !== 'pro' && !S.admin ? '<p class="dim small">Free plan: Lecture 1 and the PYQ lecture of every chapter. The other lectures come with Teach Pro.</p>' : ''}`;
+    <p class="dim small" style="margin-top:14px">The book is JEE Advanced only. Want JEE Main practice as well? Add questions from the Practice Vault in <a href="/">Question Sets</a>.</p>`;
   wireDevices(app);
 }
 
@@ -224,13 +246,16 @@ function chapter(ch) {
   const rows = ls.map(l => {
     const pyq = isPyq(l);
     const tag = l.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : '';
-    const acc = pyq ? '<span class="tag t-pyq">PYQs</span>' : (l.is_free ? '<span class="tag t-free">Free</span>' : '<span class="tag t-pro">Pro</span>');
+    const acc = pyq ? '<span class="tag t-pyq">PYQs</span>' : '';
     const meta = pyq ? 'JEE Advanced past questions with full Deep Dive solutions' : `${(l.topics || []).slice(0, 3).map(esc).join(' · ')}`;
     return `<a class="card" href="#/${ch.slug}/${l.n}"><div class="lrow"><span class="num">${canRead(l) ? 'L' + l.n : '🔒'}</span>
       <div><h3>${mathy(l.title)}${acc}${tag}</h3><div class="meta">${meta}</div></div></div></a>`;
   }).join('');
-  app.innerHTML = `<div class="crumbs"><a href="#/">Ready Lectures</a> ›</div>
-    <h1><small>JEE Advanced</small>${esc(ch.name)}${ch.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : ''}</h1>
+  const cb = ch.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : (chFree(ch.slug) ? '<span class="tag t-free">Free</span>' : '<span class="tag t-pro">Pro</span>');
+  const locked = !ls.some(canRead);
+  app.innerHTML = `<div class="crumbs"><a href="#/">AK's Lecturing Notes</a> ›</div>
+    <h1><small>JEE Advanced</small>${esc(ch.name)}${cb}</h1>
+    ${locked ? '<div class="lock"><h3>This chapter is in Teach Pro</h3><p>Circles and Quadratic Equations are free. Every other chapter of the book, and the full PDF, open with Teach Pro.</p><a class="btn" href="/?go=pro">Try it free for 14 days</a></div>' : ''}
     ${deviceBox()}<div class="pace">${PACE}</div><div class="grid">${rows}</div>`;
   wireDevices(app); typeset(app);
 }
@@ -313,21 +338,21 @@ async function showSolution(dd) {
 
 function planText(ch, l, d, A, B, ta, tb) {
   const line = e => `  - ${e.label.split('·').pop().trim()} ${e.title.replace(/\$/g, '')} (${e.minutes || '?'} min)`;
-  return [`${ch.name} · Lecture ${l.n}: ${l.title}`, `JEE Advanced · Mathemission Ready Lectures · 2 hours`, '',
+  return [`${ch.name} · Lecture ${l.n}: ${l.title}`, `JEE Advanced · AK's Lecturing Notes · 2 hours`, '',
     `${l.n}A (about ${ta} min)`, `  - Theory: ${(l.topics || []).join('; ')} (${l.theory_min} min)`, ...A.map(line), '',
     `${l.n}B (about ${tb} min)`, ...(B.length ? B.map(line) : ['  - (carry over / revision)']), '',
     'Split it differently or speed up to suit your class’s pace and time.'].join('\n');
 }
 
 async function lecture(ch, l) {
-  const head = `<div class="crumbs"><a href="#/">Ready Lectures</a> › <a href="#/${ch.slug}">${esc(ch.name)}</a> ›</div>
+  const head = `<div class="crumbs"><a href="#/">AK's Lecturing Notes</a> › <a href="#/${ch.slug}">${esc(ch.name)}</a> ›</div>
     <h2><small>${esc(ch.name)} · Lecture ${l.n}</small>${mathy(l.title)}${l.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : ''}</h2>`;
   if (!canRead(l) && S.plan === 'pro' && !S.device.ok) {
     app.innerHTML = head + deviceBox(); wireDevices(app); return typeset(app);
   }
   if (!canRead(l)) {
     app.innerHTML = head + `<div class="box"><h3>In this lecture</h3><ul class="small">${(l.topics || []).map(t => `<li>${mathy(t)}</li>`).join('')}</ul></div>
-      <div class="lock"><h3>Included in Teach Pro</h3><p>The Free plan includes Lecture 1 and the PYQ lecture of every chapter. The other Ready Lectures, with theory pages, E-sets, hints and answers, open with Teach Pro.</p><a class="btn" href="/?go=pro">Try it free for 14 days</a> <a class="btn" href="/">Back to Teach</a></div>`;;
+      <div class="lock"><h3>Included in Teach Pro</h3><p>Circles and Quadratic Equations are free in full. Every other chapter of the book, with theory pages, E-sets, hints and answers, and the full PDF, open with Teach Pro.</p><a class="btn" href="/?go=pro">Try it free for 14 days</a> <a class="btn" href="/">Back to Teach</a></div>`;;
     return typeset(app);
   }
   app.innerHTML = head + '<div class="spin">Loading lecture…</div>';
