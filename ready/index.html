@@ -223,7 +223,7 @@ async function downloadPdf(file, title, btn) {
       const { width: W, height: H } = pg.getSize();
       const fw = font.widthOfTextAtSize(foot, 7);
       pg.drawText(foot, { x: (W - fw) / 2, y: 10, size: 7, font, color: L.rgb(0.45, 0.45, 0.5) });
-      if (i > 0) pg.drawText(who, { x: W * 0.16, y: H * 0.3, size: 30, font, color: L.rgb(0.55, 0.6, 0.7), opacity: 0.07, rotate: L.degrees(35) });
+      if (i > 0) pg.drawText(who, { x: W * 0.16, y: H * 0.3, size: 30, font, color: L.rgb(0.55, 0.6, 0.7), opacity: 0.1, rotate: L.degrees(35) });
     });
     doc.setTitle(`${title} · MM Lecturing Notes`); doc.setAuthor('Ashutosh Kumar (AK) · Mathemission'); doc.setSubject(`Prepared for ${who}`); doc.setKeywords([who]);
     const out = await doc.save();
