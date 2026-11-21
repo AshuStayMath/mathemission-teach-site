@@ -42,6 +42,11 @@ textarea.i.big{min-height:130px}
 .pv .blk{border-left:3px solid var(--line);padding:6px 10px;margin:10px 0;background:var(--panel2);border-radius:0 8px 8px 0}
 .pv .blk span{display:block;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
 .pv .blk.h{border-color:#f5c542}.pv .blk.s{border-color:#2f7bff}.pv .blk.e{border-color:#22d3ee}.pv .blk.n{border-color:#a855f7}
+.also{display:flex;flex-wrap:wrap;gap:6px;max-height:118px;overflow:auto;padding:2px}
+.also .ac{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--line);border-radius:99px;font-size:12.5px;cursor:pointer}
+.also .ac:has(input:checked){border-color:#22d3ee;color:#22d3ee;background:#22d3ee14}
+.also .ac.off{opacity:.35;pointer-events:none}
+.also input{accent-color:#22d3ee}
 .help{font-size:12.5px;color:var(--muted);line-height:1.5}
 .help code{color:var(--text)}
 </style>
@@ -114,6 +119,8 @@ async function form() {
           <div><label class="f">Type</label><select class="i" name="type"><option value="SC">Single correct</option><option value="MC">Multiple correct</option><option value="NUM">Numerical</option></select></div>
           <div><label class="f">Difficulty</label><select class="i" name="diff"><option>Difficult</option><option>Moderate</option></select></div>
         </div>
+        <label class="f">Also covers <span class="dim">(optional, up to 3 more chapters)</span></label>
+        <div class="also" id="also">${CH.map(c => `<label class="ac"><input type="checkbox" name="also" value="${c.id}" ${(f.also || []).includes(c.id) ? 'checked' : ''}>${esc(c.name)}</label>`).join('')}</div>
         <label class="f">Problem</label>
         <textarea class="i big" name="stem" placeholder="Let \\( f(x)=x^3-3x \\). Find the number of real solutions of \\( f(f(x))=0 \\).">${esc(f.stem || '')}</textarea>
         <p class="help">LaTeX as usual: <code>\\( … \\)</code> or <code>$…$</code> inline, <code>\\[ … \\]</code> on its own line. A blank line starts a new paragraph.</p>
@@ -141,6 +148,9 @@ async function form() {
       ? `<input class="i" name="num" style="max-width:260px" placeholder="e.g. 7, or 2.5, or 3 or 5" value="${esc(f.type === 'NUM' ? (f.num || '') : '')}"><p class="help">A number. If two answers are accepted, write them as <code>3 or 5</code>.</p>`
       : `<div class="keys">${LET.map((L, j) => `<label><input type="${t === 'MC' ? 'checkbox' : 'radio'}" name="k" value="${j}" ${Array.isArray(k) && f.type === t && k.includes(j) ? 'checked' : ''}>${L}</label>`).join('')}</div>`;
   };
+  const alsoSync = () => { const main = +fm.chap.value, n = fm.querySelectorAll('[name="also"]:checked').length;
+    fm.querySelectorAll('.also .ac').forEach(l => { const i = l.querySelector('input'), isMain = +i.value === main; if (isMain) i.checked = false; l.style.display = isMain ? 'none' : ''; l.classList.toggle('off', !i.checked && n >= 3); }); };
+  alsoSync(); fm.chap.addEventListener('change', alsoSync); fm.querySelectorAll('[name="also"]').forEach(i => i.addEventListener('change', alsoSync));
   keyBox();
   fm.type.onchange = () => { keyBox(); preview(); };
   let pt; fm.oninput = () => { clearTimeout(pt); pt = setTimeout(() => { preview(); keepDraft({ ...read(fm), at: Date.now() }); }, 350); };
@@ -152,7 +162,8 @@ async function form() {
 
 function read(fm) {
   const t = fm.type.value, keys = [...fm.querySelectorAll('[name="k"]:checked')].map(x => +x.value);
-  return { chap: +fm.chap.value, type: t, diff: fm.diff.value, stem: fm.stem.value, opts: LET.map((_, j) => fm['o' + j].value), key: keys,
+  const also = [...fm.querySelectorAll('[name="also"]:checked')].map(x => +x.value).filter(x => x !== +fm.chap.value).slice(0, 3);
+  return { chap: +fm.chap.value, also, type: t, diff: fm.diff.value, stem: fm.stem.value, opts: LET.map((_, j) => fm['o' + j].value), key: keys,
     num: fm.num ? fm.num.value.trim() : '', idea: fm.idea.value, h1: fm.h1.value, h2: fm.h2.value, sol: fm.sol.value, alt: fm.alt.value,
     wrong: LET.map((_, j) => fm['w' + j].value), slip: fm.slip.value };
 }
@@ -182,7 +193,8 @@ function preview() {
   const tname = { SC: 'Single correct', MC: 'Multiple correct', NUM: 'Numerical' }[v.type];
   const blk = (c, l, h) => h.trim() ? `<div class="blk ${c}"><span>${l}</span>${toHtml(h)}</div>` : '';
   const ans = v.type === 'NUM' ? (v.num || '—') : v.key.map(j => `(${LET[j]})`).join(', ') || '—';
-  pv.innerHTML = `<div class="lab">Preview · Week ${W} · ${esc(ch)}</div><div class="dim small">${tname} · ${esc(v.diff)} · Fresh problem</div>
+  const alsoTxt = v.also.map(id => (CH.find(c => c.id === id) || {}).name).filter(Boolean).join(', ');
+  pv.innerHTML = `<div class="lab">Preview · Week ${W} · ${esc(ch)}</div>${alsoTxt ? `<div class="dim small">Also: ${esc(alsoTxt)}</div>` : ''}<div class="dim small">${tname} · ${esc(v.diff)} · Fresh problem</div>
     <div class="stem">${toHtml(v.stem) || '<p class="dim">Your problem appears here.</p>'}</div>
     ${v.type === 'NUM' ? '' : v.opts.map((o, j) => `<div class="opt ${v.key.includes(j) ? 'c' : ''}"><span class="k">${LET[j]}</span><span>${toInline(o) || '<span class="dim">…</span>'}</span></div>`).join('')}
     <p class="small" style="margin-top:8px">Answer: <b>${esc(ans)}</b></p>
@@ -198,7 +210,7 @@ async function save(fm, had) {
   const key = v.type === 'SC' ? { kind: 'sc', ans: v.key[0] } : v.type === 'MC' ? { kind: 'mc', ans: v.key.slice().sort() } : (() => { const n = nums(v.num); return { kind: 'num', ans: n.length === 1 ? n[0] : n, keytxt: n.join(' or ') }; })();
   const wrong = {}; if (v.type !== 'NUM') v.wrong.forEach((x, j) => { if (x.trim() && !v.key.includes(j)) wrong[LET[j]] = toInline(x); });
   const row = {
-    week: W, chapter_id: v.chap, qtype: v.type, difficulty: v.diff, stem_html: toHtml(v.stem),
+    week: W, chapter_id: v.chap, also_chapters: v.also, qtype: v.type, difficulty: v.diff, stem_html: toHtml(v.stem),
     options: v.type === 'NUM' ? null : v.opts.map(toInline), answer_key: key, key_idea: toInline(v.idea) || null,
     hints: [v.h1, v.h2].filter(h => h.trim()).map(toHtml), full_html: toHtml(v.sol), alt_html: toHtml(v.alt) || null,
     wrong_options: Object.keys(wrong).length ? wrong : null, focus_note: toHtml(v.slip) || null, src: v,

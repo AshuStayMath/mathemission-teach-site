@@ -85,7 +85,7 @@ function qFor(w) {
       K.fetchAll('questions', 'id,chapter_id,qtype,passage_id,difficulty', q => q.eq('status', 'published').eq('track', 'adv').eq('difficulty', 'Difficult').in('qtype', ['SC', 'MC', 'NUM']).not('id', 'like', 'RA%').is('passage_id', null).order('id')),
       K.kvGet(KV, {}),
       fetch('/problem/schedule.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : {}), () => ({})),
-      K.sb.from('weekly_originals').select('week,chapter_id,publish_at').then(r => r.data || [], () => [])
+      K.sb.from('weekly_originals').select('week,chapter_id,also_chapters,publish_at').then(r => r.data || [], () => [])
     ]);
     CH = ch; POOL = pool; LOG = log || {};
     (orig || []).forEach(o => { ORIG[o.week] = o; });
@@ -117,7 +117,7 @@ async function show(w) {
   if (isOrig(w)) {
     const { data: o } = await K.sb.from('weekly_originals').select('*').eq('week', w).maybeSingle();
     if (o) {
-      q = { id: 'AKW-' + w, track: 'adv', orig: true, chapter_id: o.chapter_id, qtype: o.qtype, stem_html: o.stem_html, options: o.options, answer_key: o.answer_key, difficulty: o.difficulty };
+      q = { id: 'AKW-' + w, track: 'adv', orig: true, also: o.also_chapters || [], chapter_id: o.chapter_id, qtype: o.qtype, stem_html: o.stem_html, options: o.options, answer_key: o.answer_key, difficulty: o.difficulty };
       s = { key_idea: o.key_idea, hints: o.hints || [], full_html: o.full_html, alt_html: o.alt_html, wrong_options: o.wrong_options, focus_note: o.focus_note };
     }
   } else {
@@ -132,6 +132,7 @@ async function show(w) {
   const k = K.kind(q);
   ANS = rec && rec.ans !== undefined ? rec.ans : (k === 'mc' ? [] : null);
   const ch = (CH.find(c => c.id === q.chapter_id) || {}).name || '';
+  const alsoTxt = (q.also || []).map(id => (CH.find(c => c.id === id) || {}).name).filter(Boolean).join(', ');
   const done = !!(rec && rec.verdict);
   const tried = Object.values(LOG).filter(r => r.verdict && r.verdict !== 'revealed');
   const right = tried.filter(r => r.verdict === 'correct').length;
@@ -139,7 +140,7 @@ async function show(w) {
   app.innerHTML = `${w === nowWeek() ? INTRO : `<div class="crumbs"><a href="#">Weekly Problem</a> › Week ${w}</div>`}
     <div class="statline"><span>Weeks tried <b>${tried.length}</b></span><span>Solved <b>${right}</b></span><span>Streak <b>${streak}</b> week${streak === 1 ? '' : 's'}</span></div>
     <article class="q" style="padding:16px">
-      <div class="hero"><div><div class="lab">Week ${w} · ${weekDates(w)}</div><h2 style="margin:2px 0 0">${esc(ch)}</h2>
+      <div class="hero"><div><div class="lab">Week ${w} · ${weekDates(w)}</div><h2 style="margin:2px 0 0">${esc(ch)}</h2>${alsoTxt ? `<div class="src">Also: ${esc(alsoTxt)}</div>` : ''}
         <div class="src">${esc(K.typeName(q))} · ${esc(q.difficulty || 'Difficult')}${q.orig ? ' · Fresh problem' : done ? ' · ' + esc(K.srcText(q)) : ''}</div></div>
         <span class="timer" id="tm"></span></div>
       <div id="qb" class="${done || (rec && rec.started) ? '' : 'hidden'}">
