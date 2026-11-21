@@ -124,7 +124,7 @@
 </style>
 <style id="pagestyle"></style>
 <script>try{if(window.self!==window.top)document.documentElement.classList.add('embed')}catch(e){document.documentElement.classList.add('embed')}</script>
-<style>.top .tback{flex:none;padding:7px 11px;border-radius:9px;border:1px solid var(--line);color:var(--text);text-decoration:none;font-weight:600;font-size:13.5px;margin-right:4px}.top .tback:hover{border-color:var(--cyan)}.top .brand{margin-right:auto}img.logo{object-fit:cover;background:#1e2f5e;box-shadow:none;padding:0}html.embed .top{display:none}</style>
+<style>.top .tback{flex:none;padding:7px 11px;border-radius:9px;border:1px solid var(--line);color:var(--text);text-decoration:none;font-weight:600;font-size:13.5px;margin-right:4px}.top .tback:hover{border-color:var(--cyan)}.top .brand{margin-right:auto}img.logo{object-fit:cover;background:#1e2f5e;box-shadow:none;padding:0}html.embed .top{display:none}.alsot{font-style:normal;font-size:11px;font-weight:700;color:#7fe3f5;border:1px solid rgba(34,211,238,.45);border-radius:999px;padding:1px 7px;margin-left:6px;white-space:nowrap}@media print{.alsot{display:none}}</style>
 </head>
 <body>
 <header class="top">
@@ -183,6 +183,13 @@ const track = () => W.track;
 const bucketOf = q => { if (q.page) return 'page'; const k = K.kind(q); if (k === 'subj') return 'subj'; if (q.track === 'main') return k === 'sc' ? 'sc' : 'num'; if (q.qtype === 'MATCH' || k === 'grid') return 'match'; return k; };
 const diffIx = q => Math.max(0, DNAME.indexOf(q.difficulty || 'Moderate'));
 const chName = id => (CH.find(c => c.id === id) || {}).name || '';
+/* "Also covers": a question counts for a chapter if it is its main chapter or one it also covers (My Questions). */
+const inChaps = (q, list) => list.includes(q.chapter_id) || (q.also || []).some(a => list.includes(a));
+const coversCh = (q, id) => q.chapter_id === id || (q.also || []).includes(id);
+function alsoTag(q) {
+  const a = (q.also || []).filter(x => W.chapters.includes(x));
+  return W.chapters.length && !W.chapters.includes(q.chapter_id) && a.length ? ` <em class="alsot" title="Main chapter: ${esc(chName(q.chapter_id))}">also ${esc(chName(a[0]))}</em>` : '';
+}
 const chOrder = id => (CH.find(c => c.id === id) || {}).syllabus_order || 0;
 const srcList = () => (W.track === 'main' ? ['main', 'my'] : ADV_SRCS.filter(s => !SRC[s].pro || K.pro())).filter(s => META.some(q => q.track === W.track && srcOf(q) === s));
 const srcNames = () => [...new Set([...W.srcs, ...W.items.map(id => qOf(id) && srcOf(qOf(id)))])].filter(s => SRC[s]).map(s => SRC[s].name).join(' + ') || 'My worksheet';
@@ -287,7 +294,7 @@ function inPool(q) {
   if (q.track !== W.track) return false;
   const s = srcOf(q);
   if (!W.srcs.includes(s)) return false;
-  if (W.chapters.length && !W.chapters.includes(q.chapter_id)) return false;
+  if (W.chapters.length && !inChaps(q, W.chapters)) return false;
   if (SRC[s].years && q.year && (q.year < W.yFrom || q.year > W.yTo)) return false;
   return true;
 }
@@ -301,8 +308,8 @@ function form() {
   const groups = [];
   CH.filter(c => c.track === t).sort((a, b) => (a.grp_order || 0) - (b.grp_order || 0) || a.syllabus_order - b.syllabus_order)
     .forEach(c => { let g = groups.find(g => g[0] === c.grp); if (!g) groups.push(g = [c.grp, []]); g[1].push(c); });
-  const nIn = id => META.filter(q => q.chapter_id === id && q.track === t && W.srcs.includes(srcOf(q))).length;
-  const nSrc = s => META.filter(q => q.track === t && srcOf(q) === s && (!W.chapters.length || W.chapters.includes(q.chapter_id))).length;
+  const nIn = id => META.filter(q => coversCh(q, id) && q.track === t && W.srcs.includes(srcOf(q))).length;
+  const nSrc = s => META.filter(q => q.track === t && srcOf(q) === s && (!W.chapters.length || inChaps(q, W.chapters))).length;
   const yrs = t === 'main' ? [2019, 2026] : [2006, 2026];
   const showYears = W.srcs.some(s => SRC[s].years);
   const max = K.pro() ? PRO_MAX : FREE_MAX;
@@ -474,7 +481,7 @@ async function sheet() {
       <button class="btn ghost" id="again">Choose again</button><button class="btn ghost" id="edit2">Change settings</button></div>
     ${secs.map(s => `<div class="sec-h"><h3>${s.name}</h3><span>${s.ids.length} question${s.ids.length > 1 ? 's' : ''}${W.marking ? ` · +${s.plus}${s.minus ? ' / ' + s.minus : ''}${s.b === 'mc' ? ' (partial marks)' : ''}` : ''}</span></div>
       ${s.ids.map(id => { const q = qOf(id); if (q.page) return `<article class="q" data-id="${esc(id)}"><header><span><span class="qn">✍️</span>${esc(q.title)}</span><span>Handwritten</span></header><div style="background:#fff;border-radius:8px;padding:6px">${q.svg || '<p class="dim">This board has no ink on this device.</p>'}</div>
-        <div class="qtools" style="margin-top:8px"><button data-a="up">↑</button><button data-a="down">↓</button><button data-a="del">Remove</button></div></article>`; n++; return `<article class="q" data-id="${esc(id)}"><header><span><span class="qn">Q${n}</span>${esc(K.srcText(q))}${q.chapter_id ? ' · ' + esc(chName(q.chapter_id)) : ''}</span><span>${esc(q.difficulty || '')}${K.kind(q) === 'subj' && q.marks ? ' · ' + q.marks + ' marks' : ''}</span></header>
+        <div class="qtools" style="margin-top:8px"><button data-a="up">↑</button><button data-a="down">↓</button><button data-a="del">Remove</button></div></article>`; n++; return `<article class="q" data-id="${esc(id)}"><header><span><span class="qn">Q${n}</span>${esc(K.srcText(q))}${q.chapter_id ? ' · ' + esc(chName(q.chapter_id)) : ''}${alsoTag(q)}</span><span>${esc(q.difficulty || '')}${K.kind(q) === 'subj' && q.marks ? ' · ' + q.marks + ' marks' : ''}</span></header>
         ${K.body(q)}
         <details class="ha"><summary>Answer</summary><div class="ans"><span>Key</span>${esc(K.keyText(q))}</div></details>
         <div class="qtools" style="margin-top:8px"><button data-a="up">↑</button><button data-a="down">↓</button><button data-a="swap">Swap for another</button><button data-a="del">Remove</button></div></article>`; }).join('')}`).join('')}
@@ -602,7 +609,7 @@ async function more() {
   const taken = new Set([...W.items, ...(W.avoid ? usedIds() : [])]);
   let c = pool().filter(x => !taken.has(x.id));
   /* nothing left in the ticked sources (e.g. a sheet of my own questions): take a PYQ of the same exam */
-  if (!c.length) c = META.filter(x => x.track === W.track && srcOf(x) === (W.track === 'main' ? 'main' : 'adv') && !taken.has(x.id) && (!W.chapters.length || W.chapters.includes(x.chapter_id)));
+  if (!c.length) c = META.filter(x => x.track === W.track && srcOf(x) === (W.track === 'main' ? 'main' : 'adv') && !taken.has(x.id) && (!W.chapters.length || inChaps(x, W.chapters)));
   if (!c.length) return toast('No more questions match your settings.');
   const counts = {}; W.items.forEach(id => { const b = bucketOf(qOf(id)); counts[b] = (counts[b] || 0) + 1; });
   const b = Object.keys(counts).sort((x, y) => counts[x] - counts[y]).find(b => c.some(q => bucketOf(q) === b)) || bucketOf(c[0]);
@@ -625,7 +632,7 @@ function sheetPicker(title, rows, empty, onAdd) {
   document.body.appendChild(el); typeset(el);
 }
 function pickMine() {
-  const rows = META.filter(q => q.my && !W.items.includes(q.id)).map(q => ({ id: q.id, html: `<div class="small dim">${q.track === 'main' ? 'JEE Main' : 'JEE Advanced'}${q.chapter_id ? ' · ' + esc(chName(q.chapter_id)) : ''} · ${esc(K.typeName(q))}</div>${K.body(q)}` }));
+  const rows = META.filter(q => q.my && !W.items.includes(q.id)).map(q => ({ id: q.id, html: `<div class="small dim">${q.track === 'main' ? 'JEE Main' : 'JEE Advanced'}${q.chapter_id ? ' · ' + esc(chName(q.chapter_id)) : ''}${(q.also || []).length ? ' · also ' + esc(q.also.map(chName).filter(Boolean).join(', ')) : ''} · ${esc(K.typeName(q))}</div>${K.body(q)}` }));
   sheetPicker('＋ From My Questions', rows, 'You have no questions of your own yet. Tap <b>✎ Write a new question</b> to add one.', ids => {
     const max = K.pro() ? PRO_MAX : FREE_MAX;
     W.items.push(...ids); if (W.items.length > max) { W.items = W.items.slice(0, max); toast(`Up to ${max} items per sheet.`); }

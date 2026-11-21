@@ -177,7 +177,7 @@ function myToQ(r) {
   let ans = r.ans;
   if (kind === 'num') ans = [parseFloat(String(r.ans).replace('−', '-'))];
   return {
-    id: 'MY-' + r.id, my: true, track: r.track || 'adv', chapter_id: r.chapter_id || null, year: null, paper: null,
+    id: 'MY-' + r.id, my: true, track: r.track || 'adv', chapter_id: r.chapter_id || null, also: (r.also || []).map(Number).filter(a => a && a !== +r.chapter_id), year: null, paper: null,
     qtype: { sc: 'SC', mc: 'MC', num: 'NUM', match: 'MATCH', subj: 'SUBJ' }[r.type] || 'SC', passage_id: null,
     stem_html: texToHtml(r.stem), options: ['sc', 'mc', 'match'].includes(r.type) ? (r.options || []).map(o => esc(o).replace(/\n/g, '<br>')) : null,
     answer_key: { kind, ans, keytxt: kind === 'num' ? String(r.ans) : kind === 'subj' ? (r.ans || '') : undefined },
