@@ -182,7 +182,7 @@ function preview() {
   const tname = { SC: 'Single correct', MC: 'Multiple correct', NUM: 'Numerical' }[v.type];
   const blk = (c, l, h) => h.trim() ? `<div class="blk ${c}"><span>${l}</span>${toHtml(h)}</div>` : '';
   const ans = v.type === 'NUM' ? (v.num || '—') : v.key.map(j => `(${LET[j]})`).join(', ') || '—';
-  pv.innerHTML = `<div class="lab">Preview · Week ${W} · ${esc(ch)}</div><div class="dim small">${tname} · ${esc(v.diff)} · <b style="color:#22d3ee">AK original</b></div>
+  pv.innerHTML = `<div class="lab">Preview · Week ${W} · ${esc(ch)}</div><div class="dim small">${tname} · ${esc(v.diff)} · Fresh problem</div>
     <div class="stem">${toHtml(v.stem) || '<p class="dim">Your problem appears here.</p>'}</div>
     ${v.type === 'NUM' ? '' : v.opts.map((o, j) => `<div class="opt ${v.key.includes(j) ? 'c' : ''}"><span class="k">${LET[j]}</span><span>${toInline(o) || '<span class="dim">…</span>'}</span></div>`).join('')}
     <p class="small" style="margin-top:8px">Answer: <b>${esc(ans)}</b></p>

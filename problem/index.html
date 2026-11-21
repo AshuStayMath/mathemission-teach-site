@@ -17,7 +17,6 @@
 .opt .k{flex:none;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;border:1px solid var(--line);font-weight:700;font-size:13px;color:var(--muted)}
 .opt.sel{border-color:#3a5aa8;background:#1a2a5a}.opt.sel .k{background:#2f6fe4;color:#fff;border-color:#2f6fe4}
 .opt.c{border-color:#22c55e88}.opt.c .k{background:#22c55e;color:#06210f;border-color:#22c55e}.opt.w{border-color:#ef444488}.opt.w .k{background:#ef4444;color:#fff;border-color:#ef4444}
-.akorig{color:#22d3ee;font-weight:700}
 .timer{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px}
 .verdict{border-radius:12px;padding:12px 14px;margin:12px 0;border:1px solid var(--line);background:var(--panel)}
 .verdict h3{font-size:18px;margin-bottom:2px}
@@ -141,7 +140,7 @@ async function show(w) {
     <div class="statline"><span>Weeks tried <b>${tried.length}</b></span><span>Solved <b>${right}</b></span><span>Streak <b>${streak}</b> week${streak === 1 ? '' : 's'}</span></div>
     <article class="q" style="padding:16px">
       <div class="hero"><div><div class="lab">Week ${w} · ${weekDates(w)}</div><h2 style="margin:2px 0 0">${esc(ch)}</h2>
-        <div class="src">${esc(K.typeName(q))} · ${esc(q.difficulty || 'Difficult')}${q.orig ? ' · <span class="akorig">AK original</span>' : done ? ' · ' + esc(K.srcText(q)) : ''}</div></div>
+        <div class="src">${esc(K.typeName(q))} · ${esc(q.difficulty || 'Difficult')}${q.orig ? ' · Fresh problem' : done ? ' · ' + esc(K.srcText(q)) : ''}</div></div>
         <span class="timer" id="tm"></span></div>
       <div id="qb" class="${done || (rec && rec.started) ? '' : 'hidden'}">
         <div class="stem" style="margin-top:8px">${q.stem_html}</div>
@@ -247,13 +246,13 @@ function mine(rec) {
 function weeksBox(cur) {
   const now = nowWeek(), rows = [];
   for (let w = now; w >= 1; w--) {
-    const r = LOG[weekKey(w)], cid = isOrig(w) ? ORIG[w].chapter_id : (POOL.find(p => p.id === qFor(w)) || {}).chapter_id, ch = ((CH.find(c => c.id === cid) || {}).name || '') + (isOrig(w) ? ' · AK original' : '');
+    const r = LOG[weekKey(w)], cid = isOrig(w) ? ORIG[w].chapter_id : (POOL.find(p => p.id === qFor(w)) || {}).chapter_id, ch = ((CH.find(c => c.id === cid) || {}).name || '') + (isOrig(w) ? ' · Fresh problem' : '');
     const st = !r || !r.verdict ? '<span class="dim">not tried</span>' : r.verdict === 'correct' ? '<span class="good">solved</span>' : r.verdict === 'partial' ? '<span class="gold">partly</span>' : r.verdict === 'wrong' ? '<span class="bad">missed</span>' : '<span class="dim">opened</span>';
     rows.push(`<li><span>Week ${w} · ${weekDates(w)}<br><small class="dim">${esc(ch)} · ${st}</small></span>${w === cur ? '<span class="pill2">open</span>' : `<a class="btn ghost" href="#w=${w}">${w < now && !K.pro() ? '🔒 ' : ''}Open</a>`}</li>`);
   }
   let admin = '';
   if (K.S.admin) {
-    const next = []; for (let w = now + 1; w <= now + 8; w++) next.push(`<li><span>Week ${w} · ${weekDates(w)}<br><small class="dim">${isOrig(w) ? '<b class="akorig">AK original</b> · ' + esc((CH.find(c => c.id === ORIG[w].chapter_id) || {}).name || '') : w >= FIRST_ORIG ? 'PYQ for now: ' + esc(qFor(w) || '') : esc(qFor(w) || '') + (SCHED[w] ? ' · scheduled' : '')}</small></span><span style="display:flex;gap:6px">${w >= FIRST_ORIG ? `<a class="btn ghost" href="/problem/write/#w=${w}">${isOrig(w) ? 'Edit' : 'Write'}</a>` : ''}<a class="btn ghost" href="#w=${w}">Preview</a></span></li>`);
+    const next = []; for (let w = now + 1; w <= now + 8; w++) next.push(`<li><span>Week ${w} · ${weekDates(w)}<br><small class="dim">${isOrig(w) ? '<b>Fresh problem</b> · ' + esc((CH.find(c => c.id === ORIG[w].chapter_id) || {}).name || '') : w >= FIRST_ORIG ? 'PYQ for now: ' + esc(qFor(w) || '') : esc(qFor(w) || '') + (SCHED[w] ? ' · scheduled' : '')}</small></span><span style="display:flex;gap:6px">${w >= FIRST_ORIG ? `<a class="btn ghost" href="/problem/write/#w=${w}">${isOrig(w) ? 'Edit' : 'Write'}</a>` : ''}<a class="btn ghost" href="#w=${w}">Preview</a></span></li>`);
     admin = `<div class="box weeks"><h3>Admin · coming weeks</h3><p class="small dim">Teachers can’t see these. From week ${FIRST_ORIG} your own problem is used when you have written one; otherwise a PYQ. Each problem unlocks at 00:00 IST on its Monday.</p><div class="actions" style="margin:6px 0 8px"><a class="btn" href="/problem/write/">Write a weekly problem</a></div><ul>${next.join('')}</ul></div>`;
   }
   return `<div class="box weeks"><h3>All weeks</h3><ul>${rows.join('')}</ul>${K.pro() ? '' : '<p class="small dim">Free plan: this week’s problem. Past weeks open with Teach Pro.</p>'}</div>${admin}`;
