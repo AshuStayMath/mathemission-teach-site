@@ -33,6 +33,12 @@
 .optrow .ok.on{background:#16a34a;border-color:#16a34a;color:#fff}
 .optrow .pv{margin-top:4px;padding:4px 10px;min-height:28px;font-size:14px}
 .selbar{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,#060b1f 35%);padding:14px 0 10px;display:flex;gap:8px;justify-content:center}
+.also{display:flex;flex-wrap:wrap;gap:6px;max-height:118px;overflow:auto;padding:2px}
+.also .ac{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--line);border-radius:99px;font-size:12.5px;cursor:pointer}
+.also .ac:has(input:checked){border-color:#22d3ee;color:#22d3ee;background:#22d3ee14}
+.also .ac.off{opacity:.35;pointer-events:none}
+.also input{accent-color:#22d3ee}
+.alsoc{color:var(--muted);font-weight:500}
 </style>
 <script>try{if(window.self!==window.top)document.documentElement.classList.add('embed')}catch(e){document.documentElement.classList.add('embed')}</script>
 <style>.top .tback{flex:none;padding:7px 11px;border-radius:9px;border:1px solid var(--line);color:var(--text);text-decoration:none;font-weight:600;font-size:13.5px;margin-right:4px}.top .tback:hover{border-color:var(--cyan)}.top .brand{margin-right:auto}img.logo{object-fit:cover;background:#1e2f5e;box-shadow:none;padding:0}html.embed .top{display:none}</style>
@@ -81,7 +87,7 @@ function chapOpts(track, sel) {
 }
 function matches(r) {
   const words = F.q.toLowerCase().split(/\s+/).filter(Boolean);
-  return (!F.track || r.track === F.track) && (!F.chap || +r.chapter_id === +F.chap) && (!F.type || r.type === F.type) &&
+  return (!F.track || r.track === F.track) && (!F.chap || +r.chapter_id === +F.chap || (r.also || []).map(Number).includes(+F.chap)) && (!F.type || r.type === F.type) &&
     (!words.length || words.every(w => (r.stem + ' ' + (r.options || []).join(' ')).toLowerCase().includes(w)));
 }
 
@@ -117,7 +123,7 @@ function draw() {
 function card(r) {
   const q = K.myToQ(r);
   return `<article class="q myq"><input type="checkbox" class="pick" data-pick="${esc(r.id)}" ${SEL.has(r.id) ? 'checked' : ''} aria-label="Pick for a worksheet">
-    <header><span class="lab">${r.track === 'main' ? 'JEE Main' : 'JEE Advanced'}${r.chapter_id ? ' · ' + esc(chName(r.chapter_id)) : ''}</span><span>${esc(K.typeName(q))}${r.difficulty ? ' · ' + esc(r.difficulty) : ''}</span></header>
+    <header><span class="lab">${r.track === 'main' ? 'JEE Main' : 'JEE Advanced'}${r.chapter_id ? ' · ' + esc(chName(r.chapter_id)) : ''}${(r.also || []).length ? `<small class="alsoc"> · also ${esc(r.also.map(chName).filter(Boolean).join(', '))}</small>` : ''}</span><span>${esc(K.typeName(q))}${r.difficulty ? ' · ' + esc(r.difficulty) : ''}</span></header>
     ${K.body(q)}
     <details class="ha"><summary>Answer${r.solution ? ' and solution' : ''}</summary><div class="ans"><span>Key</span>${esc(K.keyText(q))}${r.type === 'subj' && r.marks ? ` · ${r.marks} marks` : ''}</div>${r.solution ? `<div class="hint"><span>Solution</span>${q.sol_html}</div>` : ''}</details>
     <div class="qtools" style="margin-top:8px"><button data-edit="${esc(r.id)}">Edit</button><button data-del="${esc(r.id)}">Delete</button></div></article>`;
@@ -137,6 +143,8 @@ function openEditor(id) {
       <div><label class="f">Chapter</label><select class="i" id="eChap"><option value="">Choose…</option>${chapOpts(r.track, r.chapter_id)}</select></div>
       <div><label class="f">Difficulty</label><select class="i" id="eDiff">${['Easy', 'Moderate', 'Difficult'].map(d => `<option ${r.difficulty === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
     </div>
+    <label class="f">Also covers <span class="dim">(optional, up to 3 more chapters)</span></label>
+    <div class="also" id="eAlso"></div>
     <label class="f">Type</label>
     <div class="seg" id="eType">${TYPES.map(([k, n]) => `<button data-v="${k}" class="${r.type === k ? 'on' : ''}">${n}</button>`).join('')}</div>
     <label class="f">Question <span class="pill2">(maths between $…$; a blank line starts a new paragraph)</span></label>
@@ -187,7 +195,15 @@ function openEditor(id) {
     if (r.type === 'subj' && was !== 'subj') r.ans = '';
     slot.querySelectorAll('#eType button').forEach(x => x.classList.toggle('on', x === b)); drawOpts();
   });
-  $('#eTrack').onchange = e => { r.track = e.target.value; $('#eChap').innerHTML = '<option value="">Choose…</option>' + chapOpts(r.track, ''); };
+  r.also = (r.also || []).map(Number);
+  const drawAlso = () => {
+    const main = +$('#eChap').value || 0, n = r.also.filter(a => a !== main).length;
+    $('#eAlso').innerHTML = CH.filter(c => c.track === r.track && c.id !== main).sort((a, b) => a.syllabus_order - b.syllabus_order)
+      .map(c => `<label class="ac ${!r.also.includes(c.id) && n >= 3 ? 'off' : ''}"><input type="checkbox" value="${c.id}" ${r.also.includes(c.id) ? 'checked' : ''}>${esc(c.name)}</label>`).join('');
+    $('#eAlso').querySelectorAll('input').forEach(i => i.onchange = () => { const v = +i.value; r.also = i.checked ? [...r.also, v].slice(0, 3) : r.also.filter(x => x !== v); drawAlso(); });
+  };
+  drawAlso(); $('#eChap').addEventListener('change', () => { r.also = r.also.filter(a => a !== +$('#eChap').value); drawAlso(); });
+  $('#eTrack').onchange = e => { r.track = e.target.value; r.also = []; $('#eChap').innerHTML = '<option value="">Choose…</option>' + chapOpts(r.track, ''); drawAlso(); };
   slot.querySelectorAll('.snips button').forEach(b => b.onclick = () => {
     const [, pre, post] = SNIPS[+b.dataset.s], ta = focused || $('#eStem');
     const a = ta.selectionStart ?? ta.value.length, z = ta.selectionEnd ?? a;
@@ -197,7 +213,7 @@ function openEditor(id) {
   live($('#eStem'), $('#pStem')); live($('#eSol'), $('#pSol'));
   drawOpts();
   const collect = () => {
-    r.stem = $('#eStem').value.trim(); r.solution = $('#eSol').value.trim(); r.chapter_id = +$('#eChap').value || null; r.difficulty = $('#eDiff').value;
+    r.stem = $('#eStem').value.trim(); r.solution = $('#eSol').value.trim(); r.chapter_id = +$('#eChap').value || null; r.also = (r.also || []).filter(a => a !== r.chapter_id).slice(0, 3); r.difficulty = $('#eDiff').value;
     if (!r.stem) return toast('Write the question first.'), null;
     if (['sc', 'mc', 'match'].includes(r.type)) {
       r.options = r.options.map(o => o.trim());
