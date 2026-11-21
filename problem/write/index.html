@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#060b1f">
+<meta name="robots" content="noindex">
+<title>Write a Weekly Problem · Mathemission Teach</title>
+<link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/kit/kit.css?v=2">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="/kit/kit.js?v=2"></script>
+<style>
+main.wrap{max-width:1240px}
+.wgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.wgrid{grid-template-columns:minmax(0,1fr)}}
+.wcol{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.prev{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow:auto}
+.row2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media (max-width:600px){.row2{grid-template-columns:1fr}}
+textarea.i{min-height:70px;resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:13.5px;line-height:1.5}
+textarea.i.big{min-height:130px}
+.opts4{display:grid;grid-template-columns:28px minmax(0,1fr);gap:6px 8px;align-items:start}
+.opts4 b{display:grid;place-items:center;height:34px;border-radius:8px;border:1px solid var(--line);color:var(--muted);font-size:13px}
+.keys{display:flex;gap:8px;flex-wrap:wrap}
+.keys label{display:flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:9px;cursor:pointer;font-weight:600}
+.keys input{accent-color:#22d3ee}
+.err{color:#f87171;font-size:13px;margin-top:8px;min-height:1em}
+.okmsg{color:#22c55e}
+.wk{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}
+.wk a{padding:6px 10px;border-radius:9px;border:1px solid var(--line);font-size:12.5px;color:var(--text);text-decoration:none}
+.wk a.on{border-color:#22d3ee;color:#22d3ee}
+.wk a.has{background:#22d3ee14}
+.wk a small{color:var(--muted);margin-left:4px}
+.pv .lab{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan)}
+.pv .stem{margin:10px 0;line-height:1.7}
+.pv .opt{display:flex;gap:10px;align-items:flex-start;padding:8px 12px;margin:6px 0;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.pv .opt .k{flex:none;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--muted)}
+.pv .opt.c{border-color:#22c55e88}.pv .opt.c .k{background:#22c55e;color:#06210f;border-color:#22c55e}
+.pv .blk{border-left:3px solid var(--line);padding:6px 10px;margin:10px 0;background:var(--panel2);border-radius:0 8px 8px 0}
+.pv .blk span{display:block;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.pv .blk.h{border-color:#f5c542}.pv .blk.s{border-color:#2f7bff}.pv .blk.e{border-color:#22d3ee}.pv .blk.n{border-color:#a855f7}
+.help{font-size:12.5px;color:var(--muted);line-height:1.5}
+.help code{color:var(--text)}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="tback" href="/problem/" title="Back to the Weekly Problem" aria-label="Back to the Weekly Problem">&#8249; Weekly Problem</a><a class="brand" href="/"><img class="logo" src="/logo-m-96.png" alt=""><span>Mathemission Teach<small id="sub"></small></span></a>
+  <nav class="nav" id="nav"></nav>
+  <span id="plan" class="plan hidden"></span>
+</header>
+<main class="wrap" id="app"><div class="spin">Loading…</div></main>
+<footer class="wrap">AK · Stay Mathactive · <a href="https://mathemission.in">mathemission.in</a></footer>
+<div id="toast" class="toast hidden"></div>
+<script>try{if(window.self!==window.top)document.documentElement.classList.add('embed')}catch(e){document.documentElement.classList.add('embed')}</script>
+<style>.top .tback{flex:none;padding:7px 11px;border-radius:9px;border:1px solid var(--line);color:var(--text);text-decoration:none;font-weight:600;font-size:13.5px;margin-right:4px}.top .tback:hover{border-color:var(--cyan)}.top .brand{margin-right:auto}img.logo{object-fit:cover;background:#1e2f5e;box-shadow:none;padding:0}html.embed .top{display:none}</style>
+<script>
+(() => {
+'use strict';
+/* AK writes his own Weekly Problem for a coming week (doc 53). Saved in weekly_originals; it unlocks by itself at
+ * 00:00 IST on that week's Monday (the database hides it from teachers until then). Weeks 1-3 keep their PYQs. */
+const K = window.MMK, { esc, toast, typeset } = K;
+const app = document.getElementById('app');
+K.chrome('Write a Weekly Problem');
+const START = Date.UTC(2026, 10, 8, 18, 30), WEEK = 7 * 864e5, FIRST = 4, LET = ['A', 'B', 'C', 'D'];
+const nowWeek = () => Math.max(1, Math.floor((Date.now() - START) / WEEK) + 1);
+const monday = w => new Date(START + (w - 1) * WEEK + 6 * 36e5).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+const weekDates = w => { const a = new Date(START + (w - 1) * WEEK + 6 * 36e5), b = new Date(+a + 6 * 864e5); const f = d => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' }); return `${f(a)} – ${f(b)}`; };
+let CH = [], HAVE = {}, W = 0;
+
+/* Text with LaTeX → the HTML the app shows: blank line = new paragraph, line break kept. Maths stays as typed. */
+const toHtml = t => { t = String(t || '').trim(); if (!t) return ''; return t.split(/\n\s*\n/).map(p => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join(''); };
+const toInline = t => esc(String(t || '').trim()).replace(/\n/g, '<br>');
+
+(async () => {
+  if (!await K.boot(app, '<h1>Write a Weekly Problem</h1>')) return;
+  if (!K.S.admin) { app.innerHTML = '<div class="lock"><h3>Only AK can write the Weekly Problem</h3><p>Teachers get a new problem every Monday on the Weekly Problem page.</p><a class="btn" href="/problem/">Open the Weekly Problem</a></div>'; return; }
+  const [ch, list] = await Promise.all([K.chapters(), K.sb.from('weekly_originals').select('week,chapter_id,src').then(r => { if (r.error) throw r.error; return r.data || []; })]).catch(e => { app.innerHTML = `<div class="lock"><h3>Couldn’t load</h3><p>${esc(e.message || e)}</p></div>`; return [null]; });
+  if (!ch) return;
+  CH = ch.filter(c => c.track === 'adv').sort((a, b) => a.syllabus_order - b.syllabus_order);
+  (list || []).forEach(r => { HAVE[r.week] = r; });
+  window.addEventListener('hashchange', route); route();
+})();
+
+function route() {
+  const want = +(location.hash.match(/w=(\d+)/) || [])[1];
+  let first = Math.max(FIRST, nowWeek()); while (HAVE[first]) first++;
+  W = want >= FIRST ? want : first;
+  form();
+}
+
+function weekStrip() {
+  const a = Math.max(FIRST, nowWeek()), out = [];
+  for (let w = a; w <= a + 11; w++) out.push(`<a href="#w=${w}" class="${w === W ? 'on' : ''} ${HAVE[w] ? 'has' : ''}">Week ${w}<small>${monday(w)}${HAVE[w] ? ' ✓' : ''}</small></a>`);
+  return `<div class="wk">${out.join('')}</div>`;
+}
+
+async function form() {
+  let row = null;
+  if (HAVE[W]) { const { data } = await K.sb.from('weekly_originals').select('*').eq('week', W).maybeSingle(); row = data; }
+  const f = (row && row.src) || {};
+  const live = W <= nowWeek();
+  app.innerHTML = `<h1 style="margin-bottom:4px">Write a Weekly Problem</h1>
+    <p class="dim">Choose a week, write the problem with hints and the solution, and save. It unlocks for every teacher at <b>00:00 IST on ${monday(W)}</b>, by itself. Until then only you can see it.</p>
+    ${weekStrip()}
+    <div class="wgrid" style="margin-top:12px">
+      <form class="wcol" id="fm" autocomplete="off">
+        <h3>Week ${W} · ${weekDates(W)} ${live ? '<span class="gold" style="font-size:13px">· live now: changes show at once</span>' : ''}</h3>
+        <div class="row2">
+          <div><label class="f">Chapter</label><select class="i" name="chap">${CH.map(c => `<option value="${c.id}" ${+f.chap === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></div>
+          <div><label class="f">Type</label><select class="i" name="type"><option value="SC">Single correct</option><option value="MC">Multiple correct</option><option value="NUM">Numerical</option></select></div>
+          <div><label class="f">Difficulty</label><select class="i" name="diff"><option>Difficult</option><option>Moderate</option></select></div>
+        </div>
+        <label class="f">Problem</label>
+        <textarea class="i big" name="stem" placeholder="Let \\( f(x)=x^3-3x \\). Find the number of real solutions of \\( f(f(x))=0 \\).">${esc(f.stem || '')}</textarea>
+        <p class="help">LaTeX as usual: <code>\\( … \\)</code> or <code>$…$</code> inline, <code>\\[ … \\]</code> on its own line. A blank line starts a new paragraph.</p>
+        <div id="optBox"><label class="f">Options</label><div class="opts4">${LET.map((L, j) => `<b>${L}</b><textarea class="i" name="o${j}" rows="1" style="min-height:34px">${esc((f.opts || [])[j] || '')}</textarea>`).join('')}</div></div>
+        <label class="f">Correct answer</label><div id="keyBox"></div>
+        <label class="f">Key idea <span class="dim">(one line)</span></label>
+        <input class="i" name="idea" value="${esc(f.idea || '')}" placeholder="Count roots of f(x)=c for each root c of f">
+        <label class="f">Hint 1</label><textarea class="i" name="h1" placeholder="A small push, not the method.">${esc(f.h1 || '')}</textarea>
+        <label class="f">Hint 2</label><textarea class="i" name="h2" placeholder="The key step.">${esc(f.h2 || '')}</textarea>
+        <label class="f">Full solution</label><textarea class="i big" name="sol">${esc(f.sol || '')}</textarea>
+        <label class="f">The elegant way <span class="dim">(optional)</span></label><textarea class="i" name="alt">${esc(f.alt || '')}</textarea>
+        <div id="wrongBox"><label class="f">Why each wrong option fails <span class="dim">(optional)</span></label><div class="opts4">${LET.map((L, j) => `<b>${L}</b><input class="i" name="w${j}" value="${esc((f.wrong || [])[j] || '')}">`).join('')}</div></div>
+        <label class="f">Where it usually slips <span class="dim">(optional)</span></label><textarea class="i" name="slip">${esc(f.slip || '')}</textarea>
+        <div class="err" id="err"></div>
+        <div class="actions"><button class="btn" type="submit">${row ? 'Save changes' : 'Save for week ' + W}</button>${row ? '<button class="btn ghost" type="button" id="del">Delete</button>' : ''}<a class="btn ghost" href="/problem/#w=${W}">See it on the page</a></div>
+      </form>
+      <div class="wcol prev"><div class="pv" id="pv"></div></div>
+    </div>`;
+  const fm = app.querySelector('#fm');
+  fm.type.value = f.type || 'SC'; fm.diff.value = f.diff || 'Difficult';
+  const keyBox = () => {
+    const t = fm.type.value, k = f.key;
+    app.querySelector('#optBox').style.display = app.querySelector('#wrongBox').style.display = t === 'NUM' ? 'none' : '';
+    app.querySelector('#keyBox').innerHTML = t === 'NUM'
+      ? `<input class="i" name="num" style="max-width:260px" placeholder="e.g. 7, or 2.5, or 3 or 5" value="${esc(f.type === 'NUM' ? (f.num || '') : '')}"><p class="help">A number. If two answers are accepted, write them as <code>3 or 5</code>.</p>`
+      : `<div class="keys">${LET.map((L, j) => `<label><input type="${t === 'MC' ? 'checkbox' : 'radio'}" name="k" value="${j}" ${Array.isArray(k) && f.type === t && k.includes(j) ? 'checked' : ''}>${L}</label>`).join('')}</div>`;
+  };
+  keyBox();
+  fm.type.onchange = () => { keyBox(); preview(); };
+  let pt; fm.oninput = () => { clearTimeout(pt); pt = setTimeout(preview, 350); };
+  fm.onchange = () => preview();
+  fm.onsubmit = e => { e.preventDefault(); save(fm, !!row); };
+  const d = app.querySelector('#del'); if (d) d.onclick = () => del();
+  preview();
+}
+
+function read(fm) {
+  const t = fm.type.value, keys = [...fm.querySelectorAll('[name="k"]:checked')].map(x => +x.value);
+  return { chap: +fm.chap.value, type: t, diff: fm.diff.value, stem: fm.stem.value, opts: LET.map((_, j) => fm['o' + j].value), key: keys,
+    num: fm.num ? fm.num.value.trim() : '', idea: fm.idea.value, h1: fm.h1.value, h2: fm.h2.value, sol: fm.sol.value, alt: fm.alt.value,
+    wrong: LET.map((_, j) => fm['w' + j].value), slip: fm.slip.value };
+}
+const nums = s => String(s || '').replace(/−/g, '-').split(/\s*(?:or|,|;)\s*/i).filter(Boolean).map(Number);
+
+function check(v) {
+  if (!v.stem.trim()) return 'Write the problem.';
+  if (v.type !== 'NUM') {
+    if (v.opts.some(o => !o.trim())) return 'Fill in all four options.';
+    if (!v.key.length) return v.type === 'MC' ? 'Tick the correct options.' : 'Choose the correct option.';
+  } else {
+    const n = nums(v.num); if (!n.length || n.some(x => !Number.isFinite(x))) return 'Type the answer as a number (or two numbers: 3 or 5).';
+  }
+  if (!v.h1.trim()) return 'Write at least Hint 1.';
+  if (!v.sol.trim()) return 'Write the full solution.';
+  return '';
+}
+
+function preview() {
+  const fm = app.querySelector('#fm'); if (!fm) return;
+  const v = read(fm), pv = app.querySelector('#pv');
+  const ch = (CH.find(c => c.id === v.chap) || {}).name || '';
+  const tname = { SC: 'Single correct', MC: 'Multiple correct', NUM: 'Numerical' }[v.type];
+  const blk = (c, l, h) => h.trim() ? `<div class="blk ${c}"><span>${l}</span>${toHtml(h)}</div>` : '';
+  const ans = v.type === 'NUM' ? (v.num || '—') : v.key.map(j => `(${LET[j]})`).join(', ') || '—';
+  pv.innerHTML = `<div class="lab">Preview · Week ${W} · ${esc(ch)}</div><div class="dim small">${tname} · ${esc(v.diff)} · <b style="color:#22d3ee">AK original</b></div>
+    <div class="stem">${toHtml(v.stem) || '<p class="dim">Your problem appears here.</p>'}</div>
+    ${v.type === 'NUM' ? '' : v.opts.map((o, j) => `<div class="opt ${v.key.includes(j) ? 'c' : ''}"><span class="k">${LET[j]}</span><span>${toInline(o) || '<span class="dim">…</span>'}</span></div>`).join('')}
+    <p class="small" style="margin-top:8px">Answer: <b>${esc(ans)}</b></p>
+    ${blk('h', 'Hint 1', v.h1)}${blk('h', 'Hint 2', v.h2)}${blk('s', 'Key idea', v.idea)}${blk('s', 'Full solution', v.sol)}${blk('e', 'The elegant way', v.alt)}
+    ${v.type !== 'NUM' && v.wrong.some(x => x.trim()) ? `<div class="blk n"><span>Why the other options fail</span>${v.wrong.map((x, j) => x.trim() ? `<div><b>(${LET[j]})</b> ${toInline(x)}</div>` : '').join('')}</div>` : ''}
+    ${blk('n', 'Where it usually slips', v.slip)}`;
+  typeset(pv);
+}
+
+async function save(fm, had) {
+  const v = read(fm), err = app.querySelector('#err'), bad = check(v);
+  err.className = 'err'; err.textContent = bad; if (bad) return;
+  const key = v.type === 'SC' ? { kind: 'sc', ans: v.key[0] } : v.type === 'MC' ? { kind: 'mc', ans: v.key.slice().sort() } : (() => { const n = nums(v.num); return { kind: 'num', ans: n.length === 1 ? n[0] : n, keytxt: n.join(' or ') }; })();
+  const wrong = {}; if (v.type !== 'NUM') v.wrong.forEach((x, j) => { if (x.trim() && !v.key.includes(j)) wrong[LET[j]] = toInline(x); });
+  const row = {
+    week: W, chapter_id: v.chap, qtype: v.type, difficulty: v.diff, stem_html: toHtml(v.stem),
+    options: v.type === 'NUM' ? null : v.opts.map(toInline), answer_key: key, key_idea: toInline(v.idea) || null,
+    hints: [v.h1, v.h2].filter(h => h.trim()).map(toHtml), full_html: toHtml(v.sol), alt_html: toHtml(v.alt) || null,
+    wrong_options: Object.keys(wrong).length ? wrong : null, focus_note: toHtml(v.slip) || null, src: v,
+  };
+  const { error } = await K.sb.from('weekly_originals').upsert(row, { onConflict: 'week' });
+  if (error) { err.textContent = 'Couldn’t save: ' + error.message; return; }
+  HAVE[W] = { week: W, chapter_id: v.chap, src: v };
+  toast(`Saved. Week ${W} unlocks on ${monday(W)} at 00:00 IST.`);
+  err.className = 'err okmsg'; err.textContent = `Saved for week ${W}. It unlocks on ${monday(W)} at 00:00 IST.`;
+  if (!had) form();
+}
+async function del() {
+  if (!confirm(`Delete your problem for week ${W}? That week goes back to a PYQ.`)) return;
+  const { error } = await K.sb.from('weekly_originals').delete().eq('week', W);
+  if (error) return toast('Couldn’t delete: ' + error.message);
+  delete HAVE[W]; toast(`Deleted. Week ${W} will use a PYQ.`); form();
+}
+})();
+</script>
+</body>
+</html>
