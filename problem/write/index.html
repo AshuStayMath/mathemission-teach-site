@@ -94,17 +94,17 @@ function route() {
 
 function weekStrip() {
   const a = Math.max(FIRST, nowWeek()), out = [];
-  for (let w = a; w <= a + 11; w++) out.push(`<a href="#w=${w}" class="${w === W ? 'on' : ''} ${HAVE[w] ? 'has' : ''}">Week ${w}<small>${monday(w)}${HAVE[w] ? ' ✓' : ''}</small></a>`);
+  for (let w = a; w <= a + 11; w++) { const sv = HAVE[w] && HAVE[w].src, dr = sv && missing({ idea: '', h1: '', h2: '', sol: '', ...sv }).length; out.push(`<a href="#w=${w}" class="${w === W ? 'on' : ''} ${HAVE[w] ? 'has' : ''}" title="${HAVE[w] ? (dr ? 'Draft: details still to fill' : 'Ready') : 'Empty'}">Week ${w}<small>${monday(w)}${HAVE[w] ? (dr ? ' · draft' : ' ✓') : readDraft(w) ? ' · unsaved' : ''}</small></a>`); }
   return `<div class="wk">${out.join('')}</div>`;
 }
 
 async function form() {
   let row = null;
   if (HAVE[W]) { const { data } = await K.sb.from('weekly_originals').select('*').eq('week', W).maybeSingle(); row = data; }
-  const f = (row && row.src) || {};
+  const local = readDraft(W), f = (local && (!row || (local.at || 0) > Date.parse(row.updated_at || 0))) ? local : ((row && row.src) || local || {});
   const live = W <= nowWeek();
   app.innerHTML = `<h1 style="margin-bottom:4px">Write a Weekly Problem</h1>
-    <p class="dim">Choose a week, write the problem with hints and the solution, and save. It unlocks for every teacher at <b>00:00 IST on ${monday(W)}</b>, by itself. Until then only you can see it.</p>
+    <p class="dim">Choose a week, write the problem, options and answer, and save. Hints and the solution are optional: leave them empty and Claude fills them in and checks your answer before Monday. It unlocks for every teacher at <b>00:00 IST on ${monday(W)}</b>, by itself. Until then only you can see it.</p>
     ${weekStrip()}
     <div class="wgrid" style="margin-top:12px">
       <form class="wcol" id="fm" autocomplete="off">
@@ -119,11 +119,11 @@ async function form() {
         <p class="help">LaTeX as usual: <code>\\( … \\)</code> or <code>$…$</code> inline, <code>\\[ … \\]</code> on its own line. A blank line starts a new paragraph.</p>
         <div id="optBox"><label class="f">Options</label><div class="opts4">${LET.map((L, j) => `<b>${L}</b><textarea class="i" name="o${j}" rows="1" style="min-height:34px">${esc((f.opts || [])[j] || '')}</textarea>`).join('')}</div></div>
         <label class="f">Correct answer</label><div id="keyBox"></div>
-        <label class="f">Key idea <span class="dim">(one line)</span></label>
+        <label class="f">Key idea <span class="dim">(one line, optional)</span></label>
         <input class="i" name="idea" value="${esc(f.idea || '')}" placeholder="Count roots of f(x)=c for each root c of f">
-        <label class="f">Hint 1</label><textarea class="i" name="h1" placeholder="A small push, not the method.">${esc(f.h1 || '')}</textarea>
-        <label class="f">Hint 2</label><textarea class="i" name="h2" placeholder="The key step.">${esc(f.h2 || '')}</textarea>
-        <label class="f">Full solution</label><textarea class="i big" name="sol">${esc(f.sol || '')}</textarea>
+        <label class="f">Hint 1 <span class="dim">(optional: Claude can write it)</span></label><textarea class="i" name="h1" placeholder="A small push, not the method.">${esc(f.h1 || '')}</textarea>
+        <label class="f">Hint 2 <span class="dim">(optional)</span></label><textarea class="i" name="h2" placeholder="The key step.">${esc(f.h2 || '')}</textarea>
+        <label class="f">Full solution <span class="dim">(optional: Claude can write it)</span></label><textarea class="i big" name="sol">${esc(f.sol || '')}</textarea>
         <label class="f">The elegant way <span class="dim">(optional)</span></label><textarea class="i" name="alt">${esc(f.alt || '')}</textarea>
         <div id="wrongBox"><label class="f">Why each wrong option fails <span class="dim">(optional)</span></label><div class="opts4">${LET.map((L, j) => `<b>${L}</b><input class="i" name="w${j}" value="${esc((f.wrong || [])[j] || '')}">`).join('')}</div></div>
         <label class="f">Where it usually slips <span class="dim">(optional)</span></label><textarea class="i" name="slip">${esc(f.slip || '')}</textarea>
@@ -143,7 +143,7 @@ async function form() {
   };
   keyBox();
   fm.type.onchange = () => { keyBox(); preview(); };
-  let pt; fm.oninput = () => { clearTimeout(pt); pt = setTimeout(preview, 350); };
+  let pt; fm.oninput = () => { clearTimeout(pt); pt = setTimeout(() => { preview(); keepDraft({ ...read(fm), at: Date.now() }); }, 350); };
   fm.onchange = () => preview();
   fm.onsubmit = e => { e.preventDefault(); save(fm, !!row); };
   const d = app.querySelector('#del'); if (d) d.onclick = () => del();
@@ -166,10 +166,14 @@ function check(v) {
   } else {
     const n = nums(v.num); if (!n.length || n.some(x => !Number.isFinite(x))) return 'Type the answer as a number (or two numbers: 3 or 5).';
   }
-  if (!v.h1.trim()) return 'Write at least Hint 1.';
-  if (!v.sol.trim()) return 'Write the full solution.';
   return '';
 }
+const missing = v => [!v.idea.trim() && 'key idea', !v.h1.trim() && 'Hint 1', !v.h2.trim() && 'Hint 2', !v.sol.trim() && 'full solution'].filter(Boolean);
+/* What AK types is also kept on this device, so a reload or a failed save never loses it. */
+const DKEY = w => 'mmk.wp_draft_' + w;
+const keepDraft = v => { try { localStorage.setItem(DKEY(W), JSON.stringify(v)); } catch (e) {} };
+const readDraft = w => { try { return JSON.parse(localStorage.getItem(DKEY(w)) || 'null'); } catch (e) { return null; } };
+const dropDraft = w => { try { localStorage.removeItem(DKEY(w)); } catch (e) {} };
 
 function preview() {
   const fm = app.querySelector('#fm'); if (!fm) return;
@@ -201,9 +205,10 @@ async function save(fm, had) {
   };
   const { error } = await K.sb.from('weekly_originals').upsert(row, { onConflict: 'week' });
   if (error) { err.textContent = 'Couldn’t save: ' + error.message; return; }
-  HAVE[W] = { week: W, chapter_id: v.chap, src: v };
-  toast(`Saved. Week ${W} unlocks on ${monday(W)} at 00:00 IST.`);
-  err.className = 'err okmsg'; err.textContent = `Saved for week ${W}. It unlocks on ${monday(W)} at 00:00 IST.`;
+  HAVE[W] = { week: W, chapter_id: v.chap, src: v }; dropDraft(W);
+  const miss = missing(v);
+  toast(miss.length ? `Saved as a draft for week ${W}.` : `Saved. Week ${W} unlocks on ${monday(W)} at 00:00 IST.`);
+  err.className = 'err okmsg'; err.textContent = miss.length ? `Saved as a draft for week ${W}. Still to fill: ${miss.join(', ')}. Claude fills these in and checks your answer before ${monday(W)}.` : `Saved for week ${W}. It unlocks on ${monday(W)} at 00:00 IST.`;
   if (!had) form();
 }
 async function del() {
