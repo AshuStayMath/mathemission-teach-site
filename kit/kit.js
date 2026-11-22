@@ -211,6 +211,16 @@ function inkPaperSvg(noteId) {
   return `<svg class="inkpaper" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" fill="none" stroke-linecap="round" stroke-linejoin="round" style="width:${Math.round((x1 - x0) / 10)}%">${paths}</svg>`;
 }
 
-window.MMK = { sb, S, pro, esc, toast, typeset, chrome, boot, fetchAll, fetchIn, chapters, kvGet, kvSet,
+/* PDF downloads (kit/pdf.js: branded, 3 a month on Free) and the Pro Excel writer (kit/xlsx.js), loaded when first used. */
+const loaded = {};
+const loadScript = src => loaded[src] || (loaded[src] = new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => { delete loaded[src]; bad(new Error('Could not load ' + src)); }; document.head.appendChild(s); }));
+async function pdf(o) {
+  try { await loadScript('/kit/pdf.js?v=1'); } catch (e) { toast('Couldn’t prepare the PDF. Check your connection.'); return false; }
+  return window.MMPDF.make(Object.assign({ sb, user: S.user, pro: pro(), toast }, o));
+}
+async function pdfLeft() { try { await loadScript('/kit/pdf.js?v=1'); return window.MMPDF.left({ sb, user: S.user, pro: pro() }); } catch (e) { return null; } }
+async function xlsx(filename, sheets) { await loadScript('/kit/xlsx.js?v=1'); window.MMXLSX.download(filename, sheets); }
+
+window.MMK = { sb, S, pro, esc, pdf, pdfLeft, xlsx, toast, typeset, chrome, boot, fetchAll, fetchIn, chapters, kvGet, kvSet,
   LET, kind, isRA, isSC, keyText, texToHtml, boards, inkPaperSvg, myQuestions, saveMyQuestions, myToQ, typeName, srcText, body, optLabel, hash, rng, shuffle };
 })();

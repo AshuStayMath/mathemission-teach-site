@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/kit/kit.css?v=2">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="/kit/kit.js?v=2"></script>
+<script src="/kit/kit.js?v=7"></script>
 <style>
 .wrap{max-width:1100px}
 .heat{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
@@ -31,7 +31,10 @@
 .bars{display:grid;gap:4px}.bar{display:grid;grid-template-columns:44px 1fr 64px;gap:8px;align-items:center;font-size:12.5px}
 .bar i{display:block;height:12px;border-radius:4px;background:linear-gradient(90deg,#2f6fe4,#22d3ee)}
 .bar span:last-child{color:var(--muted);text-align:right}
-.split{display:flex;flex-wrap:wrap;gap:8px}.split span{font-size:13px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:4px 9px}
+.split{display:flex;flex-wrap:wrap;gap:8px}.dlrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 12px}
+.dlrow .btn{display:inline-flex;align-items:center;gap:6px}
+.dlrow .left{font-size:12px;color:var(--muted)}
+.split span{font-size:13px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:4px 9px}
 </style>
 <script>try{if(window.self!==window.top)document.documentElement.classList.add('embed')}catch(e){document.documentElement.classList.add('embed')}</script>
 <style>.top .tback{flex:none;padding:7px 11px;border-radius:9px;border:1px solid var(--line);color:var(--text);text-decoration:none;font-weight:600;font-size:13.5px;margin-right:4px}.top .tback:hover{border-color:var(--cyan)}.top .brand{margin-right:auto}img.logo{object-fit:cover;background:#1e2f5e;box-shadow:none;padding:0}html.embed .top{display:none}</style>
@@ -140,6 +143,7 @@ function board() {
   app.innerHTML = INTRO + `
     <div class="seg" id="trk"><button data-v="adv" class="${V.t === 'adv' ? 'on' : ''}">JEE Advanced</button><button data-v="main" class="${V.t === 'main' ? 'on' : ''}">JEE Main</button></div>
     <div class="statline" style="margin:10px 0"><span><b>${totalQ}</b> questions</span><span><b>${totalP}</b> ${V.t === 'main' ? 'shift papers' : 'papers'}</span><span><b>${yrs.length}</b> years</span></div>
+    <div class="dlrow"><button class="btn" id="dlPdf" title="Download this view as a PDF (A4 landscape)">⬇ Download PDF</button><button class="btn ghost" id="dlXls" title="Download the numbers as an Excel file">${K.pro() ? '⬇' : '🔒'} Excel</button><span class="left" id="dlLeft"></span></div>
     <div class="cards4">
       <div class="box"><h3>Most asked</h3><ol>${top.map(r => li(r, r.avg.toFixed(1) + '%')).join('')}</ol></div>
       <div class="box"><h3>Rising</h3>${rising.length ? `<ol>${rising.map(r => li(r, `${r.before.toFixed(1)} → ${r.recent.toFixed(1)}%`)).join('')}</ol>` : '<p class="small dim">No chapter is clearly rising in this window.</p>'}</div>
@@ -159,6 +163,124 @@ function board() {
   seg('trk', 't', () => { V.win = 'all'; history.replaceState(null, '', '#t=' + V.t); });
   seg('win', 'win'); seg('view', 'view'); seg('sort', 'sort');
   app.querySelectorAll('tr.r').forEach(tr => tr.onclick = () => { location.hash = `t=${V.t}&c=${tr.dataset.c}`; });
+  LAST = { st, rows, top, rising, cooling, quiet, totalQ, totalP, max };
+  app.querySelector('#dlPdf').onclick = downloadPdf;
+  app.querySelector('#dlXls').onclick = downloadXls;
+  showLeft();
+}
+
+/* ---------- downloads (22 Nov): PDF for everyone (3 a month on Free), Excel with Teach Pro ---------- */
+let LAST = null;
+const winLabel = () => (WINS[V.t].find(w => w[0] === V.win) || [])[1] || '';
+const viewLabel = () => (V.view === 'share' ? '% of the year’s questions' : 'Questions per paper');
+const sortLabel = () => ({ syllabus: 'Syllabus order', most: 'Most asked', rising: 'Rising first' })[V.sort];
+const examLabel = () => (V.t === 'adv' ? 'JEE Advanced' : 'JEE Main');
+async function showLeft() {
+  const el = app.querySelector('#dlLeft'); if (!el || K.pro()) return;
+  const n = await K.pdfLeft();
+  if (n !== null && el.isConnected) el.textContent = `Free plan: ${n} of 3 PDFs left this month`;
+}
+async function downloadPdf() {
+  if (!LAST) return;
+  const { st, rows, top, rising, cooling, quiet, totalQ, totalP, max } = LAST, { yrs, val } = st;
+  const fmt = v => (v ? (V.view === 'share' ? (v >= 9.95 ? v.toFixed(0) : v.toFixed(1)) : v.toFixed(1)) : '·');
+  const heat = v => v ? `background:rgba(14,165,233,${(0.07 + 0.55 * Math.min(1, v / max)).toFixed(2)})` : '';
+  const arrow = t => t > 0 ? '<span class="tu">▲</span>' : t < 0 ? '<span class="td">▼</span>' : '<span class="tf">–</span>';
+  const cols = yrs.length + 3;
+  let body = '', lastG = null, open = false;
+  rows.forEach(r => {
+    if (V.sort === 'syllabus' && r.c.grp !== lastG) {
+      if (open) body += '</tbody>';
+      lastG = r.c.grp; open = true;
+      body += `<tbody class="gb"><tr class="g"><td colspan="${cols}">${esc(r.c.grp || '')}</td></tr>`;
+    } else if (!open) { body += '<tbody>'; open = true; }
+    body += `<tr><td class="cn">${esc(r.c.name)}</td>${yrs.map(y => { const v = val(r.c.id, y); return `<td class="${v ? '' : 'z'}" style="${heat(v)}">${fmt(v)}</td>`; }).join('')}<td class="pp">${r.ppp.toFixed(1)}</td><td>${arrow(r.trend)}</td></tr>`;
+  });
+  if (open) body += '</tbody>';
+  const li = (r, x) => `<li>${esc(r.c.name)} <span class="muted">${x}</span></li>`;
+  const card = (h, list, empty) => `<div class="bx"><div class="ch">${h}</div>${list.length ? `<ol>${list.join('')}</ol>` : `<p class="muted">${empty}</p>`}</div>`;
+  const html = `
+    <div class="cards">
+      ${card('Most asked', top.map(r => li(r, r.avg.toFixed(1) + '%')), '—')}
+      ${card('Rising', rising.map(r => li(r, `${r.before.toFixed(1)} → ${r.recent.toFixed(1)}%`)), 'No chapter is clearly rising in this window.')}
+      ${card('Cooling', cooling.map(r => li(r, `${r.before.toFixed(1)} → ${r.recent.toFixed(1)}%`)), 'No chapter is clearly cooling in this window.')}
+      ${card('Quiet for 3+ years', quiet.map(r => li(r, 'last ' + r.lastSeen)), 'Every chapter appeared in the last 3 years.')}
+    </div>
+    <table class="ht"><thead><tr><th class="cn">Chapter</th>${yrs.map(y => `<th>${V.t === 'adv' ? y : "'" + String(y).slice(2)}</th>`).join('')}<th>Per paper</th><th>Trend</th></tr></thead>${body}</table>
+    <p class="key"><b>How to read it.</b> ${V.view === 'share' ? 'Each cell is the chapter’s share of that year’s maths questions (%), so years with more papers compare fairly.' : `Each cell is the average number of questions per ${V.t === 'main' ? 'shift paper' : 'paper'} that year.`}
+      Darker cells mean a bigger share. “·” = no question that year. “Per paper” is the average number of questions per paper over the window.
+      ▲ rising / ▼ cooling compares the last 3 years with the years before them.
+      ${V.t === 'main' ? 'JEE Main counts cover the shift papers in the bank, 2019–2026.' : 'Questions that span two chapters are counted under their main chapter.'}</p>`;
+  const css = `
+    #mmpdf .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin-bottom:3.5mm}
+    #mmpdf .cards .bx{margin:0;padding:2.2mm 3mm}
+    #mmpdf .cards .ch{font:800 9pt Inter,sans-serif;color:#0e7490;margin-bottom:.6mm}
+    #mmpdf .cards ol{font-size:8.2pt;line-height:1.4;padding-left:4.6mm;margin:0}
+    #mmpdf .cards p{font-size:8pt;margin:0}
+    #mmpdf table.ht{width:100%;font-size:7.4pt;table-layout:fixed}
+    #mmpdf table.ht thead{display:table-header-group}
+    #mmpdf table.ht th{background:#0b1a3d;color:#fff;font-weight:700;padding:1.3mm .4mm;text-align:center;font-size:7pt}
+    #mmpdf table.ht th.cn{text-align:left;padding-left:2mm;width:46mm}
+    #mmpdf table.ht td{border-bottom:1px solid #dde4f3;padding:1mm .3mm;text-align:center;font-variant-numeric:tabular-nums;color:#0b1a3d}
+    #mmpdf table.ht td.cn{text-align:left;padding-left:2mm;font-weight:600;font-size:7.6pt}
+    #mmpdf table.ht td.z{color:#b3bdd6}
+    #mmpdf table.ht td.pp{font-weight:800}
+    #mmpdf table.ht tr{break-inside:avoid}
+    #mmpdf table.ht tbody.gb{break-inside:avoid}
+    #mmpdf table.ht tr.g td{background:#eef3fc;color:#0e7490;font:800 7pt Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;text-align:left;padding:1.1mm 2mm}
+    #mmpdf .tu{color:#15803d;font-weight:800}#mmpdf .td{color:#dc2626;font-weight:800}#mmpdf .tf{color:#9aa5c2}
+    #mmpdf p.key{font-size:7.8pt;color:#4a5a85;margin-top:2.5mm}`;
+  await K.pdf({
+    key: `trends:${V.t}:${V.win}:${V.view}:${V.sort}`,
+    title: `PYQ Trends · ${examLabel()}`,
+    sub: `${esc(winLabel())} · ${esc(viewLabel())} · ${esc(sortLabel())} &nbsp;|&nbsp; <b>${totalQ}</b> verified questions · <b>${totalP}</b> ${V.t === 'main' ? 'shift papers' : 'papers'} · <b>${yrs.length}</b> years`,
+    filename: `PYQ Trends - ${examLabel()} ${winLabel()}`,
+    orient: 'landscape', html, css
+  });
+  showLeft();
+}
+async function downloadXls() {
+  if (!K.pro()) return toast('Excel download comes with Teach Pro. Try it free for 14 days from the Teach home screen.');
+  if (!LAST) return;
+  const { st, rows, top, rising, cooling, quiet, max } = LAST, { yrs, val, cell, perYear, papers } = st;
+  const yl = y => (V.t === 'adv' ? String(y) : "'" + String(y).slice(2));
+  const stamp = `Downloaded from Mathemission Teach · teach.mathemission.in · ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const steps = 5;
+  const heatS = v => (v ? 'heat' + Math.max(1, Math.min(steps, Math.ceil(steps * v / max))) : 'num1');
+  const trendC = t => (t > 0 ? { v: 'Rising', s: 'up' } : t < 0 ? { v: 'Cooling', s: 'down' } : { v: 'Steady', s: 'flat' });
+  const head = ['Group', 'Chapter', ...yrs.map(yl), 'Per paper', 'Average %', 'Trend', 'Last asked'].map((h, i) => ({ v: h, s: i < 2 ? 'headL' : 'head' }));
+  const r1 = [
+    [{ v: `PYQ Trends · ${examLabel()} · ${winLabel()} · ${viewLabel()}`, s: 'title' }],
+    [{ v: stamp, s: 'note' }], [],
+    head,
+    ...rows.map(r => [r.c.grp || '', { v: r.c.name, s: 'bold' }, ...yrs.map(y => { const v = val(r.c.id, y); return { v: v ? +v.toFixed(2) : null, s: heatS(v) }; }),
+      { v: +r.ppp.toFixed(2), s: 'bnum1' }, { v: +r.avg.toFixed(2), s: 'num1' }, trendC(r.trend), { v: r.lastSeen || null, s: 'int' }]),
+    [], [{ v: (V.view === 'share' ? 'Cells: the chapter’s share of that year’s maths questions (%).' : 'Cells: average questions per paper that year.') + ' Rising / Cooling compares the last 3 years with the years before.', s: 'note' }],
+    [{ v: 'AK · Stay Mathactive · mathemission.in', s: 'note' }]
+  ];
+  const r2 = [
+    [{ v: `Question counts · ${examLabel()} · ${winLabel()}`, s: 'title' }], [{ v: stamp, s: 'note' }], [],
+    ['Group', 'Chapter', ...yrs.map(yl), 'Total'].map((h, i) => ({ v: h, s: i < 2 ? 'headL' : 'head' })),
+    ...rows.map(r => [r.c.grp || '', { v: r.c.name, s: 'bold' }, ...yrs.map(y => ({ v: (cell[r.c.id] || {})[y] || null, s: 'int' })), { v: r.n, s: 'bint' }]),
+    [{ v: '', s: 'group' }, { v: 'All maths questions', s: 'group' }, ...yrs.map(y => ({ v: perYear[y], s: 'bint' })), { v: yrs.reduce((a, y) => a + perYear[y], 0), s: 'bint' }],
+    [{ v: '', s: 'group' }, { v: V.t === 'main' ? 'Shift papers' : 'Papers', s: 'group' }, ...yrs.map(y => ({ v: papers[y].size, s: 'bint' })), { v: yrs.reduce((a, y) => a + papers[y].size, 0), s: 'bint' }]
+  ];
+  const list = (h, arr, f) => [[{ v: h, s: 'group' }, { v: '', s: 'group' }], ...(arr.length ? arr.map((r, i) => [i + 1 + '. ' + r.c.name, f(r)]) : [['—', '']]), []];
+  const r3 = [
+    [{ v: `Highlights · ${examLabel()} · ${winLabel()}`, s: 'title' }], [{ v: stamp, s: 'note' }], [],
+    ...list('Most asked', top, r => r.avg.toFixed(1) + '%'),
+    ...list('Rising', rising, r => `${r.before.toFixed(1)} → ${r.recent.toFixed(1)}%`),
+    ...list('Cooling', cooling, r => `${r.before.toFixed(1)} → ${r.recent.toFixed(1)}%`),
+    ...list('Quiet for 3+ years', quiet, r => 'last ' + r.lastSeen)
+  ];
+  try {
+    await K.xlsx(`PYQ Trends - ${examLabel()} ${winLabel()} - Mathemission Teach`, [
+      { name: 'Trends', cols: [20, 34, ...yrs.map(() => 7), 10, 10, 9, 10], rows: r1, freeze: { r: 4, c: 2 } },
+      { name: 'Question counts', cols: [20, 34, ...yrs.map(() => 7), 8], rows: r2, freeze: { r: 4, c: 2 } },
+      { name: 'Highlights', cols: [44, 22], rows: r3 }
+    ]);
+    toast('Excel file downloaded.');
+  } catch (e) { toast('Couldn’t make the Excel file: ' + e.message); }
 }
 
 let FULL = {}, SOL = {}, PASS = {};

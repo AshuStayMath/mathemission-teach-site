@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/kit/kit.css?v=2">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="/kit/kit.js?v=2"></script>
+<script src="/kit/kit.js?v=7"></script>
 <style>
 .opt{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;padding:9px 12px;margin:6px 0;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
 .opt .k{flex:none;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;border:1px solid var(--line);font-weight:700;font-size:13px;color:var(--muted)}
@@ -155,8 +155,12 @@ async function show(w) {
       </div>
       ${done || (rec && rec.started) ? '' : `<div id="st" style="margin-top:12px"><p class="dim small">Find 20 quiet minutes. The timer starts when you open the problem, and nobody else sees your attempt.</p><div class="actions"><button class="btn" id="go">Open the problem</button></div></div>`}
     </article>
+    <div class="actions" style="margin-top:4px"><button class="btn ghost" id="dlQ" title="A one-page handout of the problem (A4)">⬇ Problem PDF</button>${done ? '<button class="btn ghost" id="dlS" title="The problem, then the answer, hints and full solution">⬇ PDF with solution</button>' : ''}<span class="small dim" id="dlLeft" style="align-self:center"></span></div>
     <div id="res"></div>
     ${weeksBox(w)}`;
+  app.querySelector('#dlQ').onclick = () => downloadPdf(w, false);
+  if (app.querySelector('#dlS')) app.querySelector('#dlS').onclick = () => downloadPdf(w, true);
+  showLeft();
   inputs(done);
   if (done) { result(rec); }
   else {
@@ -263,6 +267,54 @@ function weeksBox(cur) {
   return `<div class="box weeks"><h3>All weeks</h3><ul>${rows.join('')}</ul>${K.pro() ? '' : '<p class="small dim">Free plan: this week’s problem. Past weeks open with Teach Pro.</p>'}</div>${admin}`;
 }
 function wireWeeks() {}
+
+/* ---------- PDF (22 Nov): a class handout, with or without the solution. Free: 3 PDFs a month. ---------- */
+async function showLeft() {
+  const el = app.querySelector('#dlLeft'); if (!el || K.pro()) return;
+  const n = await K.pdfLeft();
+  if (n !== null && el.isConnected) el.textContent = `Free plan: ${n} of 3 PDFs left this month`;
+}
+async function downloadPdf(w, withSol) {
+  if (!Q) return;
+  const k = K.kind(Q), q = Q;
+  const ch = (CH.find(c => c.id === q.chapter_id) || {}).name || '';
+  const alsoTxt = (q.also || []).map(id => (CH.find(c => c.id === id) || {}).name).filter(Boolean).join(', ');
+  const opts = Array.isArray(q.options) ? q.options : [];
+  const ask = k === 'num' ? '<div class="abox">Answer: <span></span></div>'
+    : `${k === 'mc' ? '<p class="muted" style="font-size:9pt">One or more options are correct.</p>' : ''}<ol class="po">${opts.map((o, j) => `<li><b>(${K.LET[j]})</b> <span>${o}</span></li>`).join('')}</ol>`;
+  const blk = (l, h, c = '') => h ? `<div class="lb">${l}</div><div class="bx ${c}">${h}</div>` : '';
+  const wo = SOL.wrong_options || {};
+  let sol = '';
+  if (withSol) {
+    sol = `<div class="sp"><div class="pq" style="margin-bottom:2mm">Week ${w} · Solution</div>
+      <div class="bx key"><b>Answer: ${esc(K.keyText(q))}</b>${q.orig ? '' : ` <span class="muted">· ${esc(K.srcText(q))}</span>`}</div>
+      ${blk('Key idea', SOL.key_idea, 'key')}
+      ${(SOL.hints || []).map((h, i) => blk('Hint ' + (i + 1), h)).join('')}
+      ${blk('Full solution', SOL.full_html)}${blk('The elegant way', SOL.alt_html)}
+      ${Object.keys(wo).length ? blk('Why the other options fail', Object.keys(wo).sort().map(x => `<div><b>(${esc(x)})</b> ${wo[x]}</div>`).join('')) : ''}
+      ${blk('Where it usually slips', SOL.focus_note, 'warn')}${blk('Trap alert', SOL.trap_alert, 'warn')}${blk('Note from AK', SOL.note_html, 'warn')}</div>`;
+  }
+  const html = `<div class="pq">Week ${w} · ${esc(weekDates(w))}</div>
+    <div class="qbx"><div class="stem">${q.stem_html || ''}</div>${ask}</div>
+    ${withSol ? '' : '<div class="work"><span>Rough work</span></div>'}${sol}`;
+  const css = `
+    #mmpdf .pq{font:800 8pt Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#1d64d8;margin:0 0 1.6mm}
+    #mmpdf .qbx{border:1.4px solid #0b1a3d;border-radius:2.5mm;padding:4mm 5mm;font-size:11pt;line-height:1.6}
+    #mmpdf ol.po{list-style:none;padding:0;margin:3mm 0 0;display:grid;gap:1.6mm}
+    #mmpdf ol.po li{display:flex;gap:2.4mm;align-items:baseline}#mmpdf ol.po b{color:#1d64d8;flex:none}
+    #mmpdf .abox{margin-top:4mm;font-weight:700}#mmpdf .abox span{display:inline-block;width:45mm;border-bottom:1.2px solid #0b1a3d;margin-left:2mm}
+    #mmpdf .work{margin-top:5mm;height:110mm;border:1px dashed #b9c3dc;border-radius:2.5mm;position:relative}
+    #mmpdf .work span{position:absolute;top:2mm;left:3mm;font:700 7pt Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9aa5c2}
+    #mmpdf .sp{break-before:page;font-size:10pt}`;
+  await K.pdf({
+    key: `problem:w${w}:${withSol ? 's' : 'q'}`,
+    title: `Weekly Problem · Week ${w}${withSol ? ' (with solution)' : ''}`,
+    sub: `${esc(ch)}${alsoTxt ? ' · also ' + esc(alsoTxt) : ''} · ${esc(K.typeName(q))} · ${esc(q.difficulty || 'Difficult')}${q.orig ? ' · <b>Fresh problem by AK</b>' : ''}`,
+    filename: `Weekly Problem - Week ${w}${withSol ? ' - with solution' : ''}`,
+    orient: 'portrait', html, css
+  });
+  showLeft();
+}
 })();
 </script>
 </body>

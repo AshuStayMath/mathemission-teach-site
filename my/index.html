@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/kit/kit.css?v=3">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="/kit/kit.js?v=6"></script>
+<script src="/kit/kit.js?v=7"></script>
 <style>
 .tabs2{display:flex;gap:6px;margin:6px 0 14px}
 .tabs2 a,.tabs2 span{padding:7px 12px;border-radius:9px;border:1px solid var(--line);font-size:13.5px;text-decoration:none;color:var(--muted);background:var(--panel2)}
@@ -95,7 +95,7 @@ function draw() {
   const rows = list(), shown = rows.filter(matches);
   app.innerHTML = INTRO + `
     <div class="actions" style="margin-top:0"><button class="btn" id="new">＋ New question</button>
-      <a class="btn ghost" href="/worksheet/templates/mathemission-worksheet.tex" download>⬇ LaTeX worksheet template</a></div>
+      <a class="btn ghost" href="/worksheet/templates/mathemission-worksheet.tex" download>⬇ LaTeX worksheet template</a>${rows.length ? '<button class="btn ghost" id="tex" title="Your questions as one .tex file (the ticked ones, or all that match the filters)">⬇ Export as .tex</button>' : ''}</div>
     <div id="edslot"></div>
     ${rows.length ? `<div class="tools">
       <select class="i" id="fTrack"><option value="">Both exams</option><option value="adv" ${F.track === 'adv' ? 'selected' : ''}>JEE Advanced</option><option value="main" ${F.track === 'main' ? 'selected' : ''}>JEE Main</option></select>
@@ -104,7 +104,7 @@ function draw() {
       <input class="i" id="fQ" placeholder="Search my questions…" value="${esc(F.q)}"></div>
       <p class="small dim">${shown.length} of ${rows.length} question${rows.length === 1 ? '' : 's'}${K.pro() ? '' : ` · Free plan: up to ${FREE_MAX}`}. Tick questions to make a worksheet from them.</p>` : ''}
     <div id="list">${shown.map(card).join('') || (rows.length ? '<p class="dim">No question matches.</p>' : `<div class="box"><h3>Start your own question bank</h3><p class="small">Tap <b>＋ New question</b>. Type the question with LaTeX maths between dollar signs, for example <code>$\\frac{1}{2}$</code>, and see it rendered as you type.</p></div>`)}</div>
-    <div class="selbar ${SEL.size ? '' : 'hidden'}" id="selbar"><button class="btn" id="mk">🖨 Make a worksheet (${SEL.size})</button><button class="btn ghost" id="clr">Clear</button></div>`;
+    <div class="selbar ${SEL.size ? '' : 'hidden'}" id="selbar"><button class="btn" id="mk">🖨 Make a worksheet (${SEL.size})</button><button class="btn ghost" id="texSel">⬇ .tex</button><button class="btn ghost" id="clr">Clear</button></div>`;
   const $ = s => app.querySelector(s);
   $('#new').onclick = () => openEditor(null);
   if ($('#fTrack')) {
@@ -118,8 +118,80 @@ function draw() {
   app.querySelectorAll('[data-pick]').forEach(c => c.onchange = () => { c.checked ? SEL.add(c.dataset.pick) : SEL.delete(c.dataset.pick); $('#selbar').classList.toggle('hidden', !SEL.size); $('#mk').textContent = `🖨 Make a worksheet (${SEL.size})`; });
   $('#mk').onclick = () => { location.href = '/worksheet/#my=' + [...SEL].join(','); };
   $('#clr').onclick = () => { SEL.clear(); draw(); };
+  const texOf = () => (SEL.size ? rows.filter(r => SEL.has(r.id)) : shown);
+  if ($('#tex')) $('#tex').onclick = () => exportTex(texOf());
+  $('#texSel').onclick = () => exportTex(texOf());
   typeset($('#list'));
 }
+/* ---------- .tex export (22 Nov): one self-contained LaTeX file, grouped by exam and chapter, answer key + solutions at the end ---------- */
+const TEX_MACROS = () => {
+  const mj = window.MathJax || {}, m = (mj.config && mj.config.tex && mj.config.tex.macros) || (mj.tex && mj.tex.macros) || {};
+  return Object.entries(m).map(([k, v]) => Array.isArray(v)
+    ? `\\providecommand{\\${k}}[${v[1]}]${v.length > 2 ? `[${v[2]}]` : ''}{${v[0]}}`
+    : `\\providecommand{\\${k}}{${v}}`).join('\n');
+};
+function texText(t) {
+  /* keep maths as typed; outside maths escape a bare % & # so LaTeX doesn't choke */
+  return String(t || '').trim().split(/(\$\$[\s\S]*?\$\$|\$[^$]*\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/g)
+    .map((p, i) => (i % 2 ? p : p.replace(/(^|[^\\])([%&#])/g, '$1\\$2'))).join('');
+}
+function texKey(r) {
+  const L = r.track === 'main' ? ['1', '2', '3', '4'] : K.LET;
+  if (r.type === 'sc' || r.type === 'match') return r.ans === undefined || r.ans === null || r.ans === '' ? '--' : `(${L[+r.ans]})`;
+  if (r.type === 'mc') return (Array.isArray(r.ans) ? r.ans : []).map(i => `(${L[i]})`).join(', ') || '--';
+  return texText(String(r.ans ?? '')) || '--';
+}
+function exportTex(rows) {
+  if (!rows.length) return toast('No questions to export.');
+  const tname = { sc: 'Single correct', mc: 'Multiple correct', num: 'Numerical', match: 'Matching', subj: 'Subjective' };
+  const groups = [];
+  rows.slice().sort((a, b) => (a.track === b.track ? 0 : a.track === 'main' ? 1 : -1) || ((CH.find(c => c.id === +a.chapter_id) || {}).syllabus_order || 999) - ((CH.find(c => c.id === +b.chapter_id) || {}).syllabus_order || 999))
+    .forEach(r => { const g = (r.track === 'main' ? 'JEE Main' : 'JEE Advanced') + ' \\,\\textbullet\\, ' + texText(chName(r.chapter_id) || 'No chapter'); let x = groups.find(x => x[0] === g); if (!x) groups.push(x = [g, []]); x[1].push(r); });
+  let n = 0;
+  const qs = groups.map(([g, rs]) => `\\section*{${g}}\n\\begin{enumerate}[label=\\textbf{\\arabic*.},start=${n + 1},leftmargin=*]\n` + rs.map(r => { n++;
+    const L = r.track === 'main' ? '(\\arabic*)' : '(\\Alph*)';
+    const opts = ['sc', 'mc', 'match'].includes(r.type) && (r.options || []).some(o => String(o).trim())
+      ? `\n  \\begin{enumerate}[label=${L},itemsep=2pt]\n${(r.options || []).map(o => `    \\item ${texText(o)}`).join('\n')}\n  \\end{enumerate}` : '';
+    const tag = [tname[r.type], r.difficulty, r.type === 'subj' && r.marks ? r.marks + ' marks' : ''].filter(Boolean).join(', ');
+    return `  % ${r.id}\n  \\item {\\small\\textit{[${tag}]}}\\enspace ${texText(r.stem)}${opts}`; }).join('\n\n') + '\n\\end{enumerate}').join('\n\n');
+  let k = 0;
+  const sols = rows.length ? groups.flatMap(([, rs]) => rs).map(r => { k++; return `  \\item[\\textbf{${k}.}] \\textbf{Answer:} ${texKey(r)}${r.solution ? `\\par ${texText(r.solution)}` : ''}`; }).join('\n\n') : '';
+  const date = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const tex = `% My Questions -- exported from Mathemission Teach (teach.mathemission.in) on ${date}
+% ${rows.length} question${rows.length === 1 ? '' : 's'}. Compiles with pdfLaTeX (Overleaf, MiKTeX, TeX Live).
+\\documentclass[11pt,a4paper]{article}
+\\usepackage[margin=18mm]{geometry}
+\\usepackage{amsmath,amssymb}
+\\usepackage{enumitem}
+\\setlength{\\parindent}{0pt}
+\\setlength{\\parskip}{3pt}
+% Mathemission maths shortcuts (the same ones Teach understands)
+${TEX_MACROS()}
+
+\\begin{document}
+\\begin{center}
+  {\\LARGE\\bfseries My Questions}\\\\[2pt]
+  {\\small ${rows.length} question${rows.length === 1 ? '' : 's'} \\,\\textbullet\\, exported from Mathemission Teach \\,\\textbullet\\, ${date}}
+\\end{center}
+
+${qs}
+
+\\newpage
+\\section*{Answer key and solutions}
+\\begin{description}[leftmargin=2.2em,labelwidth=2em]
+${sols}
+\\end{description}
+
+\\vfill\\centering{\\footnotesize Made with Mathemission Teach \\,\\textbullet\\, teach.mathemission.in}
+\\end{document}
+`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([tex], { type: 'application/x-tex' }));
+  a.download = `My Questions - Mathemission Teach.tex`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast(`Exported ${rows.length} question${rows.length === 1 ? '' : 's'} as .tex.`);
+}
+
 function card(r) {
   const q = K.myToQ(r);
   return `<article class="q myq"><input type="checkbox" class="pick" data-pick="${esc(r.id)}" ${SEL.has(r.id) ? 'checked' : ''} aria-label="Pick for a worksheet">
