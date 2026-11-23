@@ -149,15 +149,17 @@ const SRC = {
   main: { name: 'JEE Main PYQs', note: '2019–2026 shifts', years: true },
   adv: { name: 'JEE Advanced PYQs', note: '2006–2026 papers', years: true },
   ra: { name: 'Rankers Assignment Plus', note: 'RA Plus sets' },
+  mf: { name: 'MM Fresh Problems', note: "AK's own problems, not from past papers" },
   sc: { name: 'Sri Chaitanya Style · GTA', note: 'Grand-test style', pro: true },
   fj: { name: 'FIITJEE Style · AITS', note: 'All India Test Series style', pro: true },
   nn: { name: 'Narayana Style · GTA', note: 'Grand-test style', pro: true },
   my: { name: 'My Questions', note: 'written by me' },
 };
-const ADV_SRCS = ['adv', 'ra', 'sc', 'fj', 'nn', 'my'];
+const ADV_SRCS = ['adv', 'ra', 'mf', 'sc', 'fj', 'nn', 'my'];
 function srcOf(q) {
   if (q.my) return 'my';
   if (q.page) return 'page';
+  if (/^MF-/.test(q.id)) return 'mf';
   if (q.track === 'main') return 'main';
   if (K.isRA(q)) return 'ra';
   const m = /^(SC|FJ|NN)-/.exec(q.id);
@@ -191,7 +193,7 @@ function alsoTag(q) {
   return W.chapters.length && !W.chapters.includes(q.chapter_id) && a.length ? ` <em class="alsot" title="Main chapter: ${esc(chName(q.chapter_id))}">also ${esc(chName(a[0]))}</em>` : '';
 }
 const chOrder = id => (CH.find(c => c.id === id) || {}).syllabus_order || 0;
-const srcList = () => (W.track === 'main' ? ['main', 'my'] : ADV_SRCS.filter(s => !SRC[s].pro || K.pro())).filter(s => META.some(q => q.track === W.track && srcOf(q) === s));
+const srcList = () => (W.track === 'main' ? ['main', 'mf', 'my'] : ADV_SRCS.filter(s => !SRC[s].pro || K.pro())).filter(s => META.some(q => q.track === W.track && srcOf(q) === s));
 const srcNames = () => [...new Set([...W.srcs, ...W.items.map(id => qOf(id) && srcOf(qOf(id)))])].filter(s => SRC[s]).map(s => SRC[s].name).join(' + ') || 'My worksheet';
 
 const INTRO = `<h1><small>Mathemission Teach</small>Worksheet &amp; Test Builder</h1>

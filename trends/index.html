@@ -68,7 +68,7 @@ const WINS = { adv: [['all', '2006–2026'], ['10', 'Last 10 years'], ['5', 'Las
   try {
     [CH, Q] = await Promise.all([
       K.chapters(),
-      K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,difficulty,session', q => q.eq('status', 'published').not('id', 'like', 'RA%').order('id'),
+      K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,difficulty,session', q => q.eq('status', 'published').not('id', 'like', 'RA%').not('id', 'like', 'MF-%').order('id'),
         n => { const l = document.getElementById('ld'); if (l) l.textContent = `Counting past questions… ${n}`; })
     ]);
   } catch (e) { app.innerHTML = INTRO + `<div class="lock"><h3>Couldn’t load the questions</h3><p>${esc(e.message)}</p></div>`; return; }

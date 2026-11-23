@@ -33,7 +33,12 @@ document.head.appendChild(mj);
 
 const SB_URL = 'https://utcydlppkmwwwrkqwhzk.supabase.co';
 const SB_KEY = 'sb_publishable_SMYHoFtw8otE40zU9MU7rw_am0Czdrm';
-const sb = window.supabase.createClient(SB_URL, SB_KEY);   // default storage key: shares the Teach sign-in on this site
+const mmAuthStore = { // same storage rule as src/auth.js ("Keep me signed in on this device")
+  getItem: k => { try { return localStorage.getItem(k) ?? sessionStorage.getItem(k); } catch (e) { return null; } },
+  setItem: (k, v) => { try { if (localStorage.getItem('mm_keep_signed_in') !== '0') { localStorage.setItem(k, v); sessionStorage.removeItem(k); } else { sessionStorage.setItem(k, v); localStorage.removeItem(k); } } catch (e) {} },
+  removeItem: k => { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch (e) {} },
+};
+const sb = window.supabase.createClient(SB_URL, SB_KEY, { auth: { storage: mmAuthStore } });   // default storage key: shares the Teach sign-in on this site
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const toast = msg => { const t = document.getElementById('toast'); if (!t) return; t.textContent = msg; t.classList.remove('hidden'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add('hidden'), 2400); };
@@ -140,6 +145,7 @@ function typeName(q) {
 function srcText(q) {
   if (q.my) return 'My question';
   if (isRA(q)) return 'RA Plus · ' + (q.paper || '');
+  if (/^MF-/.test(q.id)) return 'MM Fresh Problem';
   if (isSC(q)) return 'Sri Chaitanya Style · ' + (q.source_ref || '').replace(/^SC /, '');
   if (/^FJ-/.test(q.id)) return 'FIITJEE Style · ' + (q.source_ref || '').replace(/^FIITJEE /, '');
   if (/^NN-/.test(q.id)) return 'Narayana Style · ' + (q.source_ref || '').replace(/^Narayana /, '');

@@ -86,7 +86,7 @@ function qFor(w) {
   try {
     const [ch, pool, log, sched, orig] = await Promise.all([
       K.chapters(),
-      K.fetchAll('questions', 'id,chapter_id,qtype,passage_id,difficulty', q => q.eq('status', 'published').eq('track', 'adv').eq('difficulty', 'Difficult').in('qtype', ['SC', 'MC', 'NUM']).not('id', 'like', 'RA%').is('passage_id', null).order('id')),
+      K.fetchAll('questions', 'id,chapter_id,qtype,passage_id,difficulty', q => q.eq('status', 'published').eq('track', 'adv').eq('difficulty', 'Difficult').in('qtype', ['SC', 'MC', 'NUM']).not('id', 'like', 'RA%').not('id', 'like', 'MF-%').is('passage_id', null).order('id')),
       K.kvGet(KV, {}),
       fetch('/problem/schedule.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : {}), () => ({})),
       K.sb.from('weekly_originals').select('week,chapter_id,also_chapters,publish_at').then(r => r.data || [], () => [])
