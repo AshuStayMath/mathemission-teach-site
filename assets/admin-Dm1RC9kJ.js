@@ -1,4 +1,4 @@
-import{l as e}from"./ink-CW40GfSU.js";import{i as t,n,r}from"./auth-DkdCtvx_.js";var i=e=>String(e??``).replace(/[&<>"]/g,e=>({"&":`&amp;`,"<":`&lt;`,">":`&gt;`,'"':`&quot;`})[e]),a=`
+import{f as e}from"./ink-Dxb29iaT.js";import{i as t,n,r}from"./auth-CSxPWwdG.js";var i=e=>String(e??``).replace(/[&<>"]/g,e=>({"&":`&amp;`,"<":`&lt;`,">":`&gt;`,'"':`&quot;`})[e]),a=`
 .fp{max-width:880px;margin:0 auto;padding:20px 16px 60px}
 .fp h2{font-size:20px;margin-bottom:4px} .fp .fpsub{color:var(--muted);font-size:13px;margin-bottom:16px;line-height:1.5}
 .fpm{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px}
