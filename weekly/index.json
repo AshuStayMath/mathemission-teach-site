@@ -1,8 +1,4 @@
 [
   { "week": 1, "title": "Hermite's Identity", "part": "Part 1 · Sets, Relations & Functions", "date": "2026-11-09", "file": "week-01.md",
-    "blurb": "Why a sum of n shifted floors collapses to one floor, and the fractional-part move that proves it." },
-  { "week": 2, "title": "The Maximum of Two Functions", "part": "Part 1 · Sets, Relations & Functions", "date": "2026-11-16", "file": "week-02.md",
-    "blurb": "Max and min as \"midpoint plus or minus half the gap\", and why it makes max{f, g} easy to graph and integrate." },
-  { "week": 3, "title": "Telescoping Series", "part": "Part 3 · Algebra I", "date": "2026-11-23", "file": "week-03.md",
-    "blurb": "Seeing a term as V(n) − V(n+1), factoring into neighbours, and the trap when two terms survive at each end." }
+    "blurb": "Why a sum of n shifted floors collapses to one floor, and the fractional-part move that proves it." }
 ]
