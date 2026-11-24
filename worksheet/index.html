@@ -190,8 +190,10 @@ const DNAME = ['Easy', 'Moderate', 'Difficult'];
 let CH = [], META = [], FULL = {}, SAVED = [], PREFS = {}, MYQ = {};
 /* Sheet logo (Teach Pro): { mode: 'mm' | 'own' | 'none', img: data URL }. Its own user_kv key so prefs stay small. */
 let LOGO = { mode: 'mm', img: '' };
+const CONC = {};   // concept id -> {topic, name, ord}
+const hasConc = (q, list) => (q.concepts || []).some(c => list.includes(c));
 const W = {
-  id: null, title: '', track: 'adv', srcs: ['adv'], chapters: [], yFrom: 2006, yTo: 2026, diff: 'balanced', order: 'easy', avoid: true, mix: true,
+  id: null, title: '', track: 'adv', srcs: ['adv'], chapters: [], concepts: [], yFrom: 2006, yTo: 2026, diff: 'balanced', order: 'easy', avoid: true, mix: true,
   counts: { main: { sc: 20, num: 5, subj: 0 }, adv: { sc: 4, mc: 4, num: 4, match: 0, subj: 0 } }, marking: true,
   sets: 1, key: true, sols: false, cols: false, showSrc: false, answerBoxes: true, minutes: 0, items: []
 };
@@ -219,14 +221,15 @@ const INTRO = `<h1><small>Mathemission Teach</small>Worksheet &amp; Test Builder
   try {
     [CH, META, SAVED, PREFS] = await Promise.all([
       K.chapters(),
-      K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty', q => q.eq('status', 'published').order('id'),
+      K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty,concepts', q => q.eq('status', 'published').order('id'),
         n => { const l = document.getElementById('ld'); if (l) l.textContent = `Loading the question bank… ${n}`; })
-        .then(async rows => K.pro() ? rows.concat(await K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty,source_ref',
+        .then(async rows => K.pro() ? rows.concat(await K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty,source_ref,concepts',
           q => q.eq('status', 'teach').order('id'))) : rows),
       K.kvGet('teach_worksheets', []),
       K.kvGet('teach_sheet_prefs', {}),
       K.kvGet('teach_sheet_logo', null).then(l => { if (l && l.mode) LOGO = l; }),
-      K.myQuestions().then(m => { MYQ = m; })
+      K.myQuestions().then(m => { MYQ = m; }),
+      K.sb.from('concept_list').select('id,topic,name,ord').then(r => { (r.data || []).forEach(c => { CONC[c.id] = c; }); })
     ]);
   } catch (e) { app.innerHTML = INTRO + `<div class="lock"><h3>Couldn’t load the question bank</h3><p>${esc(e.message)}</p></div>`; return; }
   META = META.filter(q => !q.passage_id && q.answer_key);   // paragraph sets stay out of worksheets for now
@@ -293,7 +296,7 @@ async function fromSet(id) {
 }
 
 function setTrack(t) {
-  W.track = t; W.chapters = [];
+  W.track = t; W.chapters = []; W.concepts = [];
   W.srcs = t === 'main' ? ['main'] : ['adv'];
   [W.yFrom, W.yTo] = t === 'main' ? [2019, 2026] : [2006, 2026];
 }
@@ -311,12 +314,26 @@ function inPool(q) {
   const s = srcOf(q);
   if (!W.srcs.includes(s)) return false;
   if (W.chapters.length && !inChaps(q, W.chapters)) return false;
+  if (W.concepts.length && !hasConc(q, W.concepts)) return false;
   if (SRC[s].years && q.year && (q.year < W.yFrom || q.year > W.yTo)) return false;
   return true;
 }
 const pool = () => META.filter(inPool);
 const usedIds = () => new Set(SAVED.filter(s => s.id !== W.id).flatMap(s => s.items || []));
 function total() { const c = W.counts[track()]; return Object.values(c).reduce((a, b) => a + (+b || 0), 0); }
+
+/* Concept chips: shown once chapters are picked; counts follow the ticked sources. */
+function concBox(t) {
+  if (!W.chapters.length) return '';
+  const base = META.filter(q => q.track === t && W.srcs.includes(srcOf(q)) && inChaps(q, W.chapters));
+  const cnt = {}; base.forEach(q => (q.concepts || []).forEach(c => { cnt[c] = (cnt[c] || 0) + 1; }));
+  const ids = Object.keys(cnt).filter(c => CONC[c]).sort((a, b) => (cnt[b] >= 3) - (cnt[a] >= 3) || CONC[a].topic.localeCompare(CONC[b].topic) || CONC[a].ord - CONC[b].ord);
+  W.concepts = W.concepts.filter(c => cnt[c]);
+  if (!ids.length) return '';
+  return `<label class="f">Concepts <span class="pill2">(optional; none = every concept)</span></label>
+      <div class="chipbar"><span class="mini">${W.concepts.length ? `${W.concepts.length} concept${W.concepts.length > 1 ? 's' : ''} picked` : 'All concepts'}</span>${W.concepts.length ? '<button id="ccClear">Clear</button>' : ''}</div>
+      <div class="chips" id="ccs">${ids.map(c => `<button class="chip ${W.concepts.includes(c) ? 'on' : ''}" data-cc="${esc(c)}">${esc(CONC[c].name)} <span class="pill2">${cnt[c]}</span></button>`).join('')}</div>`;
+}
 
 function form() {
   const t = track(), p = pool(), used = usedIds();
@@ -345,6 +362,7 @@ function form() {
       <div class="chipbar"><span class="mini">${W.chapters.length ? `${W.chapters.length} chapter${W.chapters.length > 1 ? 's' : ''} picked` : 'All chapters'}</span>${W.chapters.length ? '<button id="chClear">Clear</button>' : ''}</div>
       <div id="chs">${groups.map(([g, cs]) => { const list = cs.filter(c => nIn(c.id)); if (!list.length) return ''; const allOn = list.every(c => W.chapters.includes(c.id));
         return `<div class="grp">${esc(g || '')} <button class="mini" data-g="${esc(g || '')}" style="margin-left:6px;color:var(--cyan)">${allOn ? 'untick all' : 'tick all'}</button></div><div class="chips">${list.map(c => `<button class="chip ${W.chapters.includes(c.id) ? 'on' : ''}" data-c="${c.id}">${esc(c.name)} <span class="pill2">${nIn(c.id)}</span></button>`).join('')}</div>`; }).join('')}</div>
+      ${concBox(t)}
       ${showYears ? `<div class="row" style="margin-top:6px">
         <div><label class="f">PYQs from year</label><input class="i" type="number" id="yf" min="${yrs[0]}" max="${yrs[1]}" value="${W.yFrom}"></div>
         <div><label class="f">to year</label><input class="i" type="number" id="yt" min="${yrs[0]}" max="${yrs[1]}" value="${W.yTo}"></div></div>` : ''}
@@ -378,7 +396,9 @@ function form() {
     W.chapters = allOn ? W.chapters.filter(id => !ids.includes(id)) : [...new Set([...W.chapters, ...ids])];
     form();
   });
-  if ($('#chClear')) $('#chClear').onclick = () => { W.chapters = []; form(); };
+  if ($('#chClear')) $('#chClear').onclick = () => { W.chapters = []; W.concepts = []; form(); };
+  app.querySelectorAll('[data-cc]').forEach(b => b.onclick = () => { const c = b.dataset.cc; W.concepts = W.concepts.includes(c) ? W.concepts.filter(x => x !== c) : [...W.concepts, c]; form(); });
+  if ($('#ccClear')) $('#ccClear').onclick = () => { W.concepts = []; form(); };
   app.querySelectorAll('[data-n]').forEach(i => i.onchange = () => { W.counts[t][i.dataset.n] = Math.max(0, Math.min(max, +i.value || 0)); form(); });
   if ($('#yf')) { $('#yf').onchange = e => { W.yFrom = +e.target.value || yrs[0]; form(); }; $('#yt').onchange = e => { W.yTo = +e.target.value || yrs[1]; form(); }; }
   app.querySelectorAll('#diff button').forEach(b => b.onclick = () => { W.diff = b.dataset.v; form(); });
@@ -668,7 +688,7 @@ function savedBox() {
     ${K.pro() ? '' : `<p class="small dim">Free plan: up to ${FREE_SAVES} saved sheets.</p>`}</div>`;
 }
 function wireSaved() {
-  app.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { const s = SAVED.find(x => x.id === b.dataset.open); if (!s) return; Object.assign(W, upgradeCfg(JSON.parse(JSON.stringify(s.cfg || {}))), { id: s.id, title: s.title, items: s.items.slice() }); sheet(); });
+  app.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { const s = SAVED.find(x => x.id === b.dataset.open); if (!s) return; Object.assign(W, { concepts: [] }, upgradeCfg(JSON.parse(JSON.stringify(s.cfg || {}))), { id: s.id, title: s.title, items: s.items.slice() }); sheet(); });
   app.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => {
     if (!confirm('Delete this saved sheet?')) return;
     SAVED = SAVED.filter(x => x.id !== b.dataset.rm); if (W.id === b.dataset.rm) W.id = null;
@@ -677,7 +697,7 @@ function wireSaved() {
 }
 async function save() {
   if (!W.id && !K.pro() && SAVED.length >= FREE_SAVES) return toast(`Free plan: up to ${FREE_SAVES} saved sheets. Delete one, or use Teach Pro.`);
-  const cfg = { track: W.track, srcs: W.srcs, mix: W.mix, chapters: W.chapters, yFrom: W.yFrom, yTo: W.yTo, diff: W.diff, order: W.order, avoid: W.avoid, counts: W.counts, marking: W.marking,
+  const cfg = { track: W.track, srcs: W.srcs, mix: W.mix, chapters: W.chapters, concepts: W.concepts, yFrom: W.yFrom, yTo: W.yTo, diff: W.diff, order: W.order, avoid: W.avoid, counts: W.counts, marking: W.marking,
     sets: W.sets, key: W.key, sols: W.sols, cols: W.cols, showSrc: W.showSrc, answerBoxes: W.answerBoxes, minutes: W.minutes, inst: W.inst, teacher: W.teacher, batch: W.batch, date: W.date };
   const rec = { id: W.id || 'ws' + Date.now().toString(36), title: W.title, at: new Date().toISOString(), items: W.items.slice(), cfg };
   SAVED = SAVED.filter(s => s.id !== rec.id).concat(rec); W.id = rec.id;
