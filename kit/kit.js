@@ -149,6 +149,7 @@ function srcText(q) {
   if (isSC(q)) return 'Sri Chaitanya Style · ' + (q.source_ref || '').replace(/^SC /, '');
   if (/^FJ-/.test(q.id)) return 'FIITJEE Style · ' + (q.source_ref || '').replace(/^FIITJEE /, '');
   if (/^NN-/.test(q.id)) return 'Narayana Style · ' + (q.source_ref || '').replace(/^Narayana /, '');
+  if (/^CP-/.test(q.id)) return 'Competishun Style · ' + (q.source_ref || '').replace(/^Competishun /, '');
   if (q.track === 'main') return `JEE Main ${q.year}${q.paper ? ' · ' + q.paper : ''}`;
   return `JEE Advanced ${q.year}${q.paper ? ', Paper ' + q.paper : ''}`;
 }
