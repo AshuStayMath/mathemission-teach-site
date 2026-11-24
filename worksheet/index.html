@@ -327,7 +327,9 @@ function concBox(t) {
   if (!W.chapters.length) return '';
   const base = META.filter(q => q.track === t && W.srcs.includes(srcOf(q)) && inChaps(q, W.chapters));
   const cnt = {}; base.forEach(q => (q.concepts || []).forEach(c => { cnt[c] = (cnt[c] || 0) + 1; }));
-  const ids = Object.keys(cnt).filter(c => CONC[c]).sort((a, b) => (cnt[b] >= 3) - (cnt[a] >= 3) || CONC[a].topic.localeCompare(CONC[b].topic) || CONC[a].ord - CONC[b].ord);
+  const tc = {}; base.forEach(q => { const c = (q.concepts || [])[0]; if (c && CONC[c]) tc[CONC[c].topic] = (tc[CONC[c].topic] || 0) + 1; });
+  const own = new Set(Object.keys(tc).filter(t => tc[t] >= Math.max(3, 0.15 * base.length)));
+  const ids = Object.keys(cnt).filter(c => CONC[c]).sort((a, b) => own.has(CONC[b].topic) - own.has(CONC[a].topic) || (own.has(CONC[a].topic) ? CONC[a].topic.localeCompare(CONC[b].topic) || CONC[a].ord - CONC[b].ord : cnt[b] - cnt[a]));
   W.concepts = W.concepts.filter(c => cnt[c]);
   if (!ids.length) return '';
   return `<label class="f">Concepts <span class="pill2">(optional; none = every concept)</span></label>
