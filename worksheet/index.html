@@ -155,7 +155,8 @@ const SRC = {
   sc: { name: 'Sri Chaitanya Style · GTA', note: 'Grand-test style', pro: true },
   fj: { name: 'FIITJEE Style · AITS', note: 'All India Test Series style', pro: true },
   nn: { name: 'Narayana Style · GTA', note: 'Grand-test style', pro: true },
-  cp: { name: 'Competishun Style', note: 'Chapter-sheet style', pro: true },
+  al: { name: 'ALLEN Style · Test Series', note: 'Leader test style', pro: true },
+  cp: { name: 'MM Practice Sets', note: 'Curated chapter-wise practice · checked by AK', pro: true },
   my: { name: 'My Questions', note: 'written by me' },
 };
 /* Source cards (AK, 24 Nov): exact counts only for PYQs (official, complete papers) and My Questions (the teacher's own).
@@ -165,13 +166,14 @@ function srcNote(s, n) {
   if (SRC[s].years) return `${SRC[s].note} · ${n.toLocaleString()} questions`;
   return SRC[s].note;
 }
-const ADV_SRCS = ['adv', 'ra', 'mf', 'sc', 'fj', 'nn', 'cp', 'my'];
+const ADV_SRCS = ['adv', 'ra', 'mf', 'sc', 'fj', 'nn', 'al', 'cp', 'my'];
 const MAIN_SRCS = ['main', 'mf', 'cp', 'my'];
 function srcOf(q) {
   if (q.my) return 'my';
   if (q.page) return 'page';
   if (/^MF-/.test(q.id)) return 'mf';
   if (/^CP-/.test(q.id)) return 'cp';
+  if (/^AL-/.test(q.id)) return 'al';
   if (q.track === 'main') return 'main';
   if (K.isRA(q)) return 'ra';
   const m = /^(SC|FJ|NN)-/.exec(q.id);
@@ -299,7 +301,7 @@ function setTrack(t) {
 function upgradeCfg(c) {
   if (!c || c.srcs) return c || {};
   const s = c.source || 'adv';
-  const map = { main: ['main'], adv: ['adv'], ra: ['ra'], advra: ['adv', 'ra'], sc: ['sc'], fj: ['fj'], nn: ['nn'], cp: ['cp'] };
+  const map = { main: ['main'], adv: ['adv'], ra: ['ra'], advra: ['adv', 'ra'], sc: ['sc'], fj: ['fj'], nn: ['nn'], al: ['al'], cp: ['cp'] };
   return { ...c, track: s === 'main' ? 'main' : 'adv', srcs: map[s] || ['adv'] };
 }
 
@@ -336,7 +338,7 @@ function form() {
       <div class="seg" id="trk"><button data-v="adv" class="${t === 'adv' ? 'on' : ''}">JEE Advanced</button><button data-v="main" class="${t === 'main' ? 'on' : ''}">JEE Main</button></div>
       <label class="f">Sources <span class="pill2">(tick one or more)</span></label>
       <div class="srcgrid" id="srcs">${srcList().map(s => `<button class="srcb ${W.srcs.includes(s) ? 'on' : ''}" data-s="${s}"><span class="tk">${W.srcs.includes(s) ? '✓' : ''}</span><span><b>${SRC[s].name}</b><small>${srcNote(s, nSrc(s))}</small></span></button>`).join('')}
-        ${lockedInst ? `<button class="srcb lock" id="instLock"><span class="tk">🔒</span><span><b>Test-series style questions</b><small>FIITJEE Style, Narayana Style, Sri Chaitanya Style, Competishun Style · Teach Pro</small></span></button>` : ''}</div>
+        ${lockedInst ? `<button class="srcb lock" id="instLock"><span class="tk">🔒</span><span><b>Test-series style questions</b><small>FIITJEE, Narayana, Sri Chaitanya and ALLEN Style, MM Practice Sets · Teach Pro</small></span></button>` : ''}</div>
       ${t === 'adv' ? `<p class="small dim" style="margin-top:6px">“Style” labels describe the style of a question only, not an official institute paper. <a href="https://mathemission.in/content-disclaimer/" target="_blank" rel="noopener" style="color:var(--cyan)">Content disclaimer</a></p>` : ''}
       ${W.srcs.length > 1 ? `<label class="cb" style="margin-top:8px"><input type="checkbox" id="mix" ${W.mix ? 'checked' : ''}>Mix the sources evenly</label>` : ''}
       <label class="f">Chapters <span class="pill2">(tick any number; none = all chapters)</span></label>
