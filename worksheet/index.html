@@ -172,7 +172,7 @@ function srcOf(q) {
   if (q.my) return 'my';
   if (q.page) return 'page';
   if (/^MF-/.test(q.id)) return 'mf';
-  if (/^CP-/.test(q.id)) return 'cp';
+  if (/^(CP|BN)-/.test(q.id)) return 'cp';
   if (/^AL-/.test(q.id)) return 'al';
   if (q.track === 'main') return 'main';
   if (K.isRA(q)) return 'ra';
