@@ -96,6 +96,7 @@ input[type=checkbox]{accent-color:#2f6fe4;width:16px;height:16px;vertical-align:
 .cb{display:block;font-size:14px;margin:6px 0}
 .small2{font-size:12px}
 @media(max-width:640px){.top{flex-wrap:wrap;row-gap:6px}.top .nav{order:3;width:100%}.nav a{padding:4px 8px}}
+@media(max-width:640px){.top .nav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.top .nav::-webkit-scrollbar{display:none}.nav a{white-space:nowrap;flex:none}}
 
 /* line icons (same set as the Teach app; no emoji, doc 69) */
 [class^="ix-"],[class^="ixo-"]{display:inline-block;width:1.08em;height:1.08em;vertical-align:-.18em;margin-right:.38em;background:currentColor;-webkit-mask:var(--ix) center/contain no-repeat;mask:var(--ix) center/contain no-repeat;flex:none}
