@@ -551,7 +551,7 @@ async function sheet() {
     </div>
     <div class="actions"><button class="btn" id="pvbtn">Preview &amp; print</button><button class="btn ghost" id="save">${W.id ? 'Save changes' : 'Save this sheet'}</button>
       <button class="btn ghost" id="again">Choose again</button><button class="btn ghost" id="edit2">Change settings</button></div>
-    ${secs.map(s => `<div class="sec-h"><h3>${s.name}</h3><span>${s.ids.length} question${s.ids.length > 1 ? 's' : ''}${W.marking ? ` · +${s.plus}${s.minus ? ' / ' + s.minus : ''}${s.b === 'mc' ? ' (partial marks)' : ''}` : ''}</span></div>
+    ${secs.map(s => `<div class="sec-h"><h3>${s.name}</h3><span>${s.ids.length} question${s.ids.length > 1 ? 's' : ''}${W.marking ? (s.b === 'para' ? ' · marks by question type' : ` · +${s.plus}${s.minus ? ' / ' + s.minus : ''}${s.b === 'mc' ? ' (partial marks)' : ''}`) : ''}</span></div>
       ${s.ids.map((id, ix) => { const q = qOf(id); if (q.passage_id) q._pass = (ix === 0 || !qOf(s.ids[ix - 1]) || qOf(s.ids[ix - 1]).passage_id !== q.passage_id) ? (PSG[q.passage_id] || '') : ''; if (q.page) return `<article class="q" data-id="${esc(id)}"><header><span><span class="qn"><i class=ix-penline></i></span>${esc(q.title)}</span><span>Handwritten</span></header><div style="background:#fff;border-radius:8px;padding:6px">${q.svg || '<p class="dim">This board has no ink on this device.</p>'}</div>
         <div class="qtools" style="margin-top:8px"><button data-a="up">↑</button><button data-a="down">↓</button><button data-a="del">Remove</button></div></article>`; n++; return `<article class="q" data-id="${esc(id)}"><header><span><span class="qn">Q${n}</span>${esc(K.srcText(q))}${q.chapter_id ? ' · ' + esc(chName(q.chapter_id)) : ''}${alsoTag(q)}</span><span>${esc(q.difficulty || '')}${K.kind(q) === 'subj' && q.marks ? ' · ' + q.marks + ' marks' : ''}</span></header>
         ${K.body(q)}
@@ -779,7 +779,7 @@ function insLine(s) {
   if (s.b === 'sc') return `<li><b>Single correct:</b> only one option is correct. +3 if correct, −1 if wrong, 0 if left blank.</li>`;
   if (s.b === 'mc') return `<li><b>Multiple correct:</b> one or more options are correct. +4 if all correct options and no wrong option are chosen; +1 for each correct option chosen when no wrong option is chosen; −2 if any wrong option is chosen.</li>`;
   if (s.b === 'num') return `<li><b>Numerical:</b> the answer is a number. +4 if correct, 0 otherwise.</li>`;
-  if (s.b === 'para') return `<li><b>Paragraph sets:</b> read each paragraph, then answer the questions after it. Each question is marked by its type: single correct +3 / −1, numerical +4 / 0, multiple correct as above.</li>`;
+  if (s.b === 'para') return `<li><b>Paragraph sets:</b> read each paragraph, then answer the questions after it. Each question is marked by its type: single correct +3 / −1, numerical +4 / 0, multiple correct +4 / −2 with partial marks.</li>`;
   return `<li><b>Matching:</b> +3 if correct, −1 if wrong${s.ids.some(id => K.kind(qOf(id)) === 'grid') ? '; tick-grid questions: +2 for each fully correct row' : ''}.</li>`;
 }
 function markTxt(s) {
