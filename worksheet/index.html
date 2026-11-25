@@ -163,7 +163,7 @@ const SRC = {
    Other banks show what they are; the live count per type is in "How many of each type". */
 function srcNote(s, n) {
   if (s === 'my') return `${SRC.my.note} · ${n.toLocaleString()} question${n === 1 ? '' : 's'}`;
-  if (SRC[s].years) return `${SRC[s].note} · ${n.toLocaleString()} questions`;
+  if (SRC[s].years) return `${SRC[s].note} · ${n.toLocaleString()} questions${s === 'adv' ? ' (paragraph sets not included)' : ''}`;
   return SRC[s].note;
 }
 const ADV_SRCS = ['adv', 'ra', 'mf', 'sc', 'fj', 'nn', 'al', 'cp', 'my'];
