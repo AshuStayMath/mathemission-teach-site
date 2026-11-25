@@ -302,7 +302,7 @@ function chapter(ch) {
     const tag = l.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : '';
     const acc = pyq ? '<span class="tag t-pyq">PYQs</span>' : '';
     const meta = pyq ? 'JEE Advanced past questions with full Deep Dive solutions' : `${(l.topics || []).slice(0, 3).map(esc).join(' · ')}`;
-    return `<a class="card" href="#/${ch.slug}/${l.n}"><div class="lrow"><span class="num">${canRead(l) ? 'L' + l.n : '🔒'}</span>
+    return `<a class="card" href="#/${ch.slug}/${l.n}"><div class="lrow"><span class="num">${canRead(l) ? 'L' + l.n : '<i style="margin:0" class=ix-lock></i>'}</span>
       <div><h3>${mathy(l.title)}${acc}${tag}</h3><div class="meta">${meta}</div></div></div></a>`;
   }).join('');
   const cb = ch.status === 'draft' ? '<span class="tag t-draft">Draft</span>' : (chFree(ch.slug) ? '<span class="tag t-free">Free</span>' : '<span class="tag t-pro">Pro</span>');

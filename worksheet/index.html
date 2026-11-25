@@ -215,16 +215,31 @@ const srcNames = () => [...new Set([...W.srcs, ...W.items.map(id => qOf(id) && s
 const INTRO = `<h1><small>Mathemission Teach</small>Worksheet &amp; Test Builder</h1>
   <p class="lead">Pick chapters, sources and how many questions. Teach chooses verified questions, balances the difficulty and makes a print-ready sheet in your name, with the answer key.</p>`;
 
+/* The question list (ids, chapters, keys, concepts: no question text) is kept on this device (IndexedDB),
+ * so the builder opens at once; a fresh copy is fetched in the background every time and used next time. */
+function bankDb() { return new Promise((res, rej) => { const r = indexedDB.open('mm_ws', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function idbGet(k) { try { const db = await bankDb(); return await new Promise(res => { const t = db.transaction('kv').objectStore('kv').get(k); t.onsuccess = () => res(t.result); t.onerror = () => res(null); }); } catch (e) { return null; } }
+async function idbSet(k, v) { try { const db = await bankDb(); db.transaction('kv', 'readwrite').objectStore('kv').put(v, k); } catch (e) {} }
+async function fetchBank(onPage) {
+  const rows = await K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty,concepts', q => q.eq('status', 'published').order('id'), onPage);
+  return K.pro() ? rows.concat(await K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty,source_ref,concepts', q => q.eq('status', 'teach').order('id'))) : rows;
+}
+async function loadBank() {
+  const key = 'bank_v1_' + (K.pro() ? 'pro' : 'free');
+  const c = await idbGet(key);
+  if (c && c.rows && Date.now() - c.at < 7 * 864e5) { fetchBank().then(rows => idbSet(key, { at: Date.now(), rows })).catch(() => {}); return c.rows; }
+  const rows = await fetchBank(n => { const l = document.getElementById('ld'); if (l) l.textContent = `Loading the question bank… ${n}`; });
+  idbSet(key, { at: Date.now(), rows });
+  return rows;
+}
+
 (async () => {
   if (!await K.boot(app, INTRO)) return;
   app.innerHTML = INTRO + '<div class="spin" id="ld">Loading the question bank…</div>';
   try {
     [CH, META, SAVED, PREFS] = await Promise.all([
       K.chapters(),
-      K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty,concepts', q => q.eq('status', 'published').order('id'),
-        n => { const l = document.getElementById('ld'); if (l) l.textContent = `Loading the question bank… ${n}`; })
-        .then(async rows => K.pro() ? rows.concat(await K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty,source_ref,concepts',
-          q => q.eq('status', 'teach').order('id'))) : rows),
+      loadBank(),
       K.kvGet('teach_worksheets', []),
       K.kvGet('teach_sheet_prefs', {}),
       K.kvGet('teach_sheet_logo', null).then(l => { if (l && l.mode) LOGO = l; }),
@@ -334,7 +349,7 @@ function concBox(t) {
   if (!ids.length) return '';
   return `<label class="f">Concepts <span class="pill2">(optional; none = every concept)</span></label>
       <div class="chipbar"><span class="mini">${W.concepts.length ? `${W.concepts.length} concept${W.concepts.length > 1 ? 's' : ''} picked` : 'All concepts'}</span>${W.concepts.length ? '<button id="ccClear">Clear</button>' : ''}</div>
-      <div class="chips" id="ccs">${ids.map(c => `<button class="chip ${W.concepts.includes(c) ? 'on' : ''}" data-cc="${esc(c)}">${esc(CONC[c].name)} <span class="pill2">${cnt[c]}</span></button>`).join('')}</div>`;
+      <div class="chips" id="ccs">${ids.filter(c => W.ccAll || own.has(CONC[c].topic) || cnt[c] >= 3 || W.concepts.includes(c)).map(c => `<button class="chip ${W.concepts.includes(c) ? 'on' : ''}" data-cc="${esc(c)}">${esc(CONC[c].name)} <span class="pill2">${cnt[c]}</span></button>`).join('')}${(n => n && !W.ccAll ? `<button class="chip" id="ccMore" style="border-style:dashed">+ ${n} more from other chapters</button>` : '')(ids.filter(c => !(own.has(CONC[c].topic) || cnt[c] >= 3 || W.concepts.includes(c))).length)}</div>`;
 }
 
 function form() {
@@ -357,7 +372,7 @@ function form() {
       <div class="seg" id="trk"><button data-v="adv" class="${t === 'adv' ? 'on' : ''}">JEE Advanced</button><button data-v="main" class="${t === 'main' ? 'on' : ''}">JEE Main</button></div>
       <label class="f">Sources <span class="pill2">(tick one or more)</span></label>
       <div class="srcgrid" id="srcs">${srcList().map(s => `<button class="srcb ${W.srcs.includes(s) ? 'on' : ''}" data-s="${s}"><span class="tk">${W.srcs.includes(s) ? '✓' : ''}</span><span><b>${SRC[s].name}</b><small>${srcNote(s, nSrc(s))}</small></span></button>`).join('')}
-        ${lockedInst ? `<button class="srcb lock" id="instLock"><span class="tk">🔒</span><span><b>Test-series style questions</b><small>FIITJEE, Narayana, Sri Chaitanya and ALLEN Style, MM Practice Sets · Teach Pro</small></span></button>` : ''}</div>
+        ${lockedInst ? `<button class="srcb lock" id="instLock"><span class="tk"><i class=ix-lock></i></span><span><b>Test-series style questions</b><small>FIITJEE, Narayana, Sri Chaitanya and ALLEN Style, MM Practice Sets · Teach Pro</small></span></button>` : ''}</div>
       ${t === 'adv' ? `<p class="small dim" style="margin-top:6px">“Style” labels describe the style of a question only, not an official institute paper. <a href="https://mathemission.in/content-disclaimer/" target="_blank" rel="noopener" style="color:var(--cyan)">Content disclaimer</a></p>` : ''}
       ${W.srcs.length > 1 ? `<label class="cb" style="margin-top:8px"><input type="checkbox" id="mix" ${W.mix ? 'checked' : ''}>Mix the sources evenly</label>` : ''}
       <label class="f">Chapters <span class="pill2">(tick any number; none = all chapters)</span></label>
@@ -379,7 +394,7 @@ function form() {
     </div>
     <div class="actions"><button class="btn" id="go">Make the worksheet</button>${W.items.length ? '<button class="btn ghost" id="back">Back to my sheet</button>' : ''}</div>
     <div class="box" style="margin-top:14px"><h3>Or build it yourself</h3><p class="small">Start with an empty sheet and add your own questions, newly typed questions or handwritten board pages, in the same print design.</p>
-      <div class="actions" style="margin-top:8px"><button class="btn ghost" id="blank">✎ Start a blank worksheet</button><a class="btn ghost" href="/worksheet/templates/mathemission-worksheet.tex" download>⬇ LaTeX template</a></div></div>`;
+      <div class="actions" style="margin-top:8px"><button class="btn ghost" id="blank">✎ Start a blank worksheet</button><a class="btn ghost" href="/worksheet/templates/mathemission-worksheet.tex" download><i class=ix-download></i>LaTeX template</a></div></div>`;
 
   const $ = s => app.querySelector(s);
   app.querySelectorAll('#trk button').forEach(b => b.onclick = () => { if (b.dataset.v !== W.track) { setTrack(b.dataset.v); form(); } });
@@ -401,6 +416,7 @@ function form() {
   if ($('#chClear')) $('#chClear').onclick = () => { W.chapters = []; W.concepts = []; form(); };
   app.querySelectorAll('[data-cc]').forEach(b => b.onclick = () => { const c = b.dataset.cc; W.concepts = W.concepts.includes(c) ? W.concepts.filter(x => x !== c) : [...W.concepts, c]; form(); });
   if ($('#ccClear')) $('#ccClear').onclick = () => { W.concepts = []; form(); };
+  if ($('#ccMore')) $('#ccMore').onclick = () => { W.ccAll = true; form(); };
   app.querySelectorAll('[data-n]').forEach(i => i.onchange = () => { W.counts[t][i.dataset.n] = Math.max(0, Math.min(max, +i.value || 0)); form(); });
   if ($('#yf')) { $('#yf').onchange = e => { W.yFrom = +e.target.value || yrs[0]; form(); }; $('#yt').onchange = e => { W.yTo = +e.target.value || yrs[1]; form(); }; }
   app.querySelectorAll('#diff button').forEach(b => b.onclick = () => { W.diff = b.dataset.v; form(); });
@@ -512,21 +528,21 @@ async function sheet() {
       <label class="cb"><input type="checkbox" id="showSrc" ${W.showSrc ? 'checked' : ''}>Print the source under each question (e.g. JEE Advanced 2019, Paper 1)</label>
       <label class="cb"><input type="checkbox" id="sols" ${W.sols && K.pro() ? 'checked' : ''} ${K.pro() ? '' : 'disabled'}>Add a solutions booklet (key idea + full solution, where written)${proTag}</label>
       <label class="f">Versions</label>
-      <div class="seg" id="sets">${[1, 2, 3].map(k => `<button data-v="${k}" class="${W.sets === k ? 'on' : ''}">${k === 1 ? 'One version' : k === 2 ? 'Sets A, B' : 'Sets A, B, C'}${k > 1 && !K.pro() ? ' 🔒' : ''}</button>`).join('')}</div>
+      <div class="seg" id="sets">${[1, 2, 3].map(k => `<button data-v="${k}" class="${W.sets === k ? 'on' : ''}">${k === 1 ? 'One version' : k === 2 ? 'Sets A, B' : 'Sets A, B, C'}${k > 1 && !K.pro() ? ' <i class=ix-lock style="margin:0 0 0 .3em"></i>' : ''}</button>`).join('')}</div>
       <p class="small dim" style="margin-top:4px">Sets B and C have the same questions in a different order inside each section, each with its own key.</p>
     </div>
     <div class="actions"><button class="btn" id="pvbtn">Preview &amp; print</button><button class="btn ghost" id="save">${W.id ? 'Save changes' : 'Save this sheet'}</button>
       <button class="btn ghost" id="again">Choose again</button><button class="btn ghost" id="edit2">Change settings</button></div>
     ${secs.map(s => `<div class="sec-h"><h3>${s.name}</h3><span>${s.ids.length} question${s.ids.length > 1 ? 's' : ''}${W.marking ? ` · +${s.plus}${s.minus ? ' / ' + s.minus : ''}${s.b === 'mc' ? ' (partial marks)' : ''}` : ''}</span></div>
-      ${s.ids.map(id => { const q = qOf(id); if (q.page) return `<article class="q" data-id="${esc(id)}"><header><span><span class="qn">✍️</span>${esc(q.title)}</span><span>Handwritten</span></header><div style="background:#fff;border-radius:8px;padding:6px">${q.svg || '<p class="dim">This board has no ink on this device.</p>'}</div>
+      ${s.ids.map(id => { const q = qOf(id); if (q.page) return `<article class="q" data-id="${esc(id)}"><header><span><span class="qn"><i class=ix-penline></i></span>${esc(q.title)}</span><span>Handwritten</span></header><div style="background:#fff;border-radius:8px;padding:6px">${q.svg || '<p class="dim">This board has no ink on this device.</p>'}</div>
         <div class="qtools" style="margin-top:8px"><button data-a="up">↑</button><button data-a="down">↓</button><button data-a="del">Remove</button></div></article>`; n++; return `<article class="q" data-id="${esc(id)}"><header><span><span class="qn">Q${n}</span>${esc(K.srcText(q))}${q.chapter_id ? ' · ' + esc(chName(q.chapter_id)) : ''}${alsoTag(q)}</span><span>${esc(q.difficulty || '')}${K.kind(q) === 'subj' && q.marks ? ' · ' + q.marks + ' marks' : ''}</span></header>
         ${K.body(q)}
         <details class="ha"><summary>Answer</summary><div class="ans"><span>Key</span>${esc(K.keyText(q))}</div></details>
         <div class="qtools" style="margin-top:8px"><button data-a="up">↑</button><button data-a="down">↓</button><button data-a="swap">Swap for another</button><button data-a="del">Remove</button></div></article>`; }).join('')}`).join('')}
     ${W.items.length ? '' : '<div class="box"><h3>Your blank worksheet</h3><p class="small">Add questions with the buttons below. They print in the Mathemission design, with sections, marks and an answer key.</p></div>'}
     <div class="box"><h3>Add to this sheet</h3><div class="actions" style="margin-top:6px">
-      <button class="btn ghost" id="addMy">＋ From My Questions</button><button class="btn ghost" id="addNew">✎ Write a new question</button>
-      <button class="btn ghost" id="addInk">✍️ Handwritten page</button><button class="btn ghost" id="more">＋ One more from the bank</button></div></div>`;
+      <button class="btn ghost" id="addMy"><i class=ix-plus></i>From My Questions</button><button class="btn ghost" id="addNew">✎ Write a new question</button>
+      <button class="btn ghost" id="addInk"><i class=ix-penline></i>Handwritten page</button><button class="btn ghost" id="more"><i class=ix-plus></i>One more from the bank</button></div></div>`;
   typeset(app);
   const $ = s => app.querySelector(s);
   const keep = () => {
@@ -555,7 +571,7 @@ async function sheet() {
 /* ---------- sheet logo (Teach Pro) ---------- */
 const logoMode = () => (K.pro() ? LOGO.mode : 'mm');
 function logoBox() {
-  const m = logoMode(), lock = K.pro() ? '' : ' 🔒';
+  const m = logoMode(), lock = K.pro() ? '' : ' <i style=\"margin:0 0 0 .3em\" class=ix-lock></i>';
   return `<label class="f">Logo on the sheet${K.pro() ? '' : '<span class="lockt">Pro</span>'}</label>
     <div class="seg" id="logoSeg">
       <button data-v="mm" class="${m === 'mm' ? 'on' : ''}">Mathemission logo</button>
@@ -671,7 +687,7 @@ function sheetPicker(title, rows, empty, onAdd) {
 }
 function pickMine() {
   const rows = META.filter(q => q.my && !W.items.includes(q.id)).map(q => ({ id: q.id, html: `<div class="small dim">${q.track === 'main' ? 'JEE Main' : 'JEE Advanced'}${q.chapter_id ? ' · ' + esc(chName(q.chapter_id)) : ''}${(q.also || []).length ? ' · also ' + esc(q.also.map(chName).filter(Boolean).join(', ')) : ''} · ${esc(K.typeName(q))}</div>${K.body(q)}` }));
-  sheetPicker('＋ From My Questions', rows, 'You have no questions of your own yet. Tap <b>✎ Write a new question</b> to add one.', ids => {
+  sheetPicker('From My Questions', rows, 'You have no questions of your own yet. Tap <b>✎ Write a new question</b> to add one.', ids => {
     const max = K.pro() ? PRO_MAX : FREE_MAX;
     W.items.push(...ids); if (W.items.length > max) { W.items = W.items.slice(0, max); toast(`Up to ${max} items per sheet.`); }
     sheet();
@@ -679,7 +695,7 @@ function pickMine() {
 }
 function pickBoard() {
   const rows = K.boards().filter(b => !W.items.includes('INK-' + b.id)).map(b => ({ id: 'INK-' + b.id, html: `<b>${esc(b.title)}</b><div style="background:#fff;border-radius:6px;padding:4px;margin-top:6px;max-height:160px;overflow:hidden">${K.inkPaperSvg(b.id)}</div>` }));
-  sheetPicker('✍️ Add a handwritten page', rows, 'No boards with writing on this device yet. In Teach, open <b>Lecture Notes → ✍️ New board</b>, write, tap Done, then come back here.', ids => { W.items.push(...ids); sheet(); });
+  sheetPicker('Add a handwritten page', rows, 'No boards with writing on this device yet. In Teach, open <b>Lecture Notes → New board</b>, write, tap Done, then come back here.', ids => { W.items.push(...ids); sheet(); });
 }
 
 /* ---------------- saved sheets ---------------- */

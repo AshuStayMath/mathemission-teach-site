@@ -96,8 +96,8 @@ function matches(r) {
 function draw() {
   const rows = list(), shown = rows.filter(matches);
   app.innerHTML = INTRO + `
-    <div class="actions" style="margin-top:0"><button class="btn" id="new">＋ New question</button>
-      <a class="btn ghost" href="/worksheet/templates/mathemission-worksheet.tex" download>⬇ LaTeX worksheet template</a>${rows.length ? '<button class="btn ghost" id="tex" title="Your questions as one .tex file (the ticked ones, or all that match the filters)">⬇ Export as .tex</button>' : ''}</div>
+    <div class="actions" style="margin-top:0"><button class="btn" id="new"><i class=ix-plus></i>New question</button>
+      <a class="btn ghost" href="/worksheet/templates/mathemission-worksheet.tex" download><i class=ix-download></i>LaTeX worksheet template</a>${rows.length ? '<button class="btn ghost" id="tex" title="Your questions as one .tex file (the ticked ones, or all that match the filters)"><i class=ix-download></i>Export as .tex</button>' : ''}</div>
     <div id="edslot"></div>
     ${rows.length ? `<div class="tools">
       <select class="i" id="fTrack"><option value="">Both exams</option><option value="adv" ${F.track === 'adv' ? 'selected' : ''}>JEE Advanced</option><option value="main" ${F.track === 'main' ? 'selected' : ''}>JEE Main</option></select>
@@ -105,8 +105,8 @@ function draw() {
       <select class="i" id="fType"><option value="">All types</option>${TYPES.map(([k, n]) => `<option value="${k}" ${F.type === k ? 'selected' : ''}>${n}</option>`).join('')}</select>
       <input class="i" id="fQ" placeholder="Search my questions…" value="${esc(F.q)}"></div>
       <p class="small dim">${shown.length} of ${rows.length} question${rows.length === 1 ? '' : 's'}${K.pro() ? '' : ` · Free plan: up to ${FREE_MAX}`}. Tick questions to make a worksheet from them.</p>` : ''}
-    <div id="list">${shown.map(card).join('') || (rows.length ? '<p class="dim">No question matches.</p>' : `<div class="box"><h3>Start your own question bank</h3><p class="small">Tap <b>＋ New question</b>. Type the question with LaTeX maths between dollar signs, for example <code>$\\frac{1}{2}$</code>, and see it rendered as you type.</p></div>`)}</div>
-    <div class="selbar ${SEL.size ? '' : 'hidden'}" id="selbar"><button class="btn" id="mk">🖨 Make a worksheet (${SEL.size})</button><button class="btn ghost" id="texSel">⬇ .tex</button><button class="btn ghost" id="clr">Clear</button></div>`;
+    <div id="list">${shown.map(card).join('') || (rows.length ? '<p class="dim">No question matches.</p>' : `<div class="box"><h3>Start your own question bank</h3><p class="small">Tap <b><i class=ix-plus></i>New question</b>. Type the question with LaTeX maths between dollar signs, for example <code>$\\frac{1}{2}$</code>, and see it rendered as you type.</p></div>`)}</div>
+    <div class="selbar ${SEL.size ? '' : 'hidden'}" id="selbar"><button class="btn" id="mk"><i class=ix-printer></i>Make a worksheet (${SEL.size})</button><button class="btn ghost" id="texSel"><i class=ix-download></i>.tex</button><button class="btn ghost" id="clr">Clear</button></div>`;
   const $ = s => app.querySelector(s);
   $('#new').onclick = () => openEditor(null);
   if ($('#fTrack')) {
@@ -117,7 +117,7 @@ function draw() {
   }
   app.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openEditor(b.dataset.edit));
   app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => remove(b.dataset.del));
-  app.querySelectorAll('[data-pick]').forEach(c => c.onchange = () => { c.checked ? SEL.add(c.dataset.pick) : SEL.delete(c.dataset.pick); $('#selbar').classList.toggle('hidden', !SEL.size); $('#mk').textContent = `🖨 Make a worksheet (${SEL.size})`; });
+  app.querySelectorAll('[data-pick]').forEach(c => c.onchange = () => { c.checked ? SEL.add(c.dataset.pick) : SEL.delete(c.dataset.pick); $('#selbar').classList.toggle('hidden', !SEL.size); $('#mk').innerHTML = `<i class=ix-printer></i>Make a worksheet (${SEL.size})`; });
   $('#mk').onclick = () => { location.href = '/worksheet/#my=' + [...SEL].join(','); };
   $('#clr').onclick = () => { SEL.clear(); draw(); };
   const texOf = () => (SEL.size ? rows.filter(r => SEL.has(r.id)) : shown);

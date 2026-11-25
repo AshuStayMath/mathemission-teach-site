@@ -157,7 +157,7 @@ async function show(w) {
       </div>
       ${done || (rec && rec.started) ? '' : `<div id="st" style="margin-top:12px"><p class="dim small">Find 20 quiet minutes. The timer starts when you open the problem, and nobody else sees your attempt.</p><div class="actions"><button class="btn" id="go">Open the problem</button></div></div>`}
     </article>
-    <div class="actions" style="margin-top:4px"><button class="btn ghost" id="dlQ" title="A one-page handout of the problem (A4)">⬇ Problem PDF</button>${done ? '<button class="btn ghost" id="dlS" title="The problem, then the answer, hints and full solution">⬇ PDF with solution</button>' : ''}<span class="small dim" id="dlLeft" style="align-self:center"></span></div>
+    <div class="actions" style="margin-top:4px"><button class="btn ghost" id="dlQ" title="A one-page handout of the problem (A4)"><i class=ix-download></i>Problem PDF</button>${done ? '<button class="btn ghost" id="dlS" title="The problem, then the answer, hints and full solution"><i class=ix-download></i>PDF with solution</button>' : ''}<span class="small dim" id="dlLeft" style="align-self:center"></span></div>
     <div id="res"></div>
     ${weeksBox(w)}`;
   app.querySelector('#dlQ').onclick = () => downloadPdf(w, false);
@@ -259,7 +259,7 @@ function weeksBox(cur) {
   for (let w = now; w >= 1; w--) {
     const r = LOG[weekKey(w)], cid = isOrig(w) ? ORIG[w].chapter_id : (POOL.find(p => p.id === qFor(w)) || {}).chapter_id, ch = ((CH.find(c => c.id === cid) || {}).name || '') + (isOrig(w) ? ' · ' : '');
     const st = !r || !r.verdict ? '<span class="dim">not tried</span>' : r.verdict === 'correct' ? '<span class="good">solved</span>' : r.verdict === 'partial' ? '<span class="gold">partly</span>' : r.verdict === 'wrong' ? '<span class="bad">missed</span>' : '<span class="dim">opened</span>';
-    rows.push(`<li><span>Week ${w} · ${weekDates(w)}<br><small class="dim">${esc(ch)}${isOrig(w) ? '<span class="fresh sm">Fresh problem</span> · ' : ''}${st}</small></span>${w === cur ? '<span class="pill2">open</span>' : `<a class="btn ghost" href="#w=${w}">${w < now && !K.pro() ? '🔒 ' : ''}Open</a>`}</li>`);
+    rows.push(`<li><span>Week ${w} · ${weekDates(w)}<br><small class="dim">${esc(ch)}${isOrig(w) ? '<span class="fresh sm">Fresh problem</span> · ' : ''}${st}</small></span>${w === cur ? '<span class="pill2">open</span>' : `<a class="btn ghost" href="#w=${w}">${w < now && !K.pro() ? '<i class=ix-lock></i>' : ''}Open</a>`}</li>`);
   }
   let admin = '';
   if (K.S.admin) {

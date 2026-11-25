@@ -145,7 +145,7 @@ function board() {
   app.innerHTML = INTRO + `
     <div class="seg" id="trk"><button data-v="adv" class="${V.t === 'adv' ? 'on' : ''}">JEE Advanced</button><button data-v="main" class="${V.t === 'main' ? 'on' : ''}">JEE Main</button></div>
     <div class="statline" style="margin:10px 0"><span><b>${totalQ}</b> questions</span><span><b>${totalP}</b> ${V.t === 'main' ? 'shift papers' : 'papers'}</span><span><b>${yrs.length}</b> years</span></div>
-    <div class="dlrow"><button class="btn" id="dlPdf" title="Download this view as a PDF (A4 landscape)">⬇ Download PDF</button><button class="btn ghost" id="dlXls" title="Download the numbers as an Excel file">${K.pro() ? '⬇' : '🔒'} Excel</button><span class="left" id="dlLeft"></span></div>
+    <div class="dlrow"><button class="btn" id="dlPdf" title="Download this view as a PDF (A4 landscape)"><i class=ix-download></i>Download PDF</button><button class="btn ghost" id="dlXls" title="Download the numbers as an Excel file">${K.pro() ? '<i class=ix-download></i>' : '<i class=ix-lock></i>'} Excel</button><span class="left" id="dlLeft"></span></div>
     <div class="cards4">
       <div class="box"><h3>Most asked</h3><ol>${top.map(r => li(r, r.avg.toFixed(1) + '%')).join('')}</ol></div>
       <div class="box"><h3>Rising</h3>${rising.length ? `<ol>${rising.map(r => li(r, `${r.before.toFixed(1)} → ${r.recent.toFixed(1)}%`)).join('')}</ol>` : '<p class="small dim">No chapter is clearly rising in this window.</p>'}</div>
