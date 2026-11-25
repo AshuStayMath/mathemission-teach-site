@@ -17,6 +17,10 @@
 <script src="/kit/kit.js?v=7"></script>
 <style>
 .cpanel{margin:6px 0 4px 10px;padding:9px 11px 4px;border-left:2px solid var(--cyan);border-radius:0 10px 10px 0;background:rgba(34,211,238,.05)}
+.cptitle{font-size:12.5px;font-weight:700;color:var(--text);margin:2px 0 8px}
+.csec{padding:8px 0 4px;border-top:1px dashed var(--line)}.csec:first-of-type{border-top:0;padding-top:0}
+.csec .cphead{font-size:13px;margin-bottom:6px}
+.cpsep{flex-basis:100%;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:6px 0 2px}
 .cpfoot{display:flex;align-items:center;gap:10px;margin:4px 0 6px}.cpfoot .cpdone{margin-left:auto;padding:6px 14px;font-size:13px}
 .cpanel.done{padding:8px 11px}.cpanel.done .cphead{margin:0;font-weight:500}.cpanel.done .cphead i{color:var(--green,#22c55e)}
 .cphead{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:6px}.cphead .mini{margin-left:auto}
@@ -355,37 +359,42 @@ const pool = () => META.filter(inPool);
 const usedIds = () => new Set(SAVED.filter(s => s.id !== W.id).flatMap(s => s.items || []));
 function total() { const c = W.counts[track()]; return Object.values(c).reduce((a, b) => a + (+b || 0), 0); }
 
-/* Concept chips (25 Nov): each unit with ticked chapters shows its concepts right under its own chapter row.
- * A concept picked in one unit narrows only that unit's questions; units with nothing picked keep every concept. */
-let PANELS = {};   // unit name -> Set of concept ids shown in its panel
+/* Concept chips (25 Nov): each ticked chapter gets its own concept section, right under its unit's chapter row.
+ * Picks are kept per chapter as "chapterId:concept": a pick narrows only that chapter's questions. */
 const unitOf = id => (CH.find(c => c.id === id) || {}).grp || '';
-function qUnit(q) {
-  if (W.chapters.includes(q.chapter_id)) return unitOf(q.chapter_id);
-  const a = (q.also || []).find(x => W.chapters.includes(x)); return a ? unitOf(a) : unitOf(q.chapter_id);
-}
+const pickedIn = ch => W.concepts.filter(x => x.startsWith(ch + ':')).map(x => x.slice(String(ch).length + 1));
 function concOk(q) {
-  if (!W.concepts.length) return true;
-  const pan = PANELS[qUnit(q)]; if (!pan) return true;
-  const want = W.concepts.filter(c => pan.has(c)); if (!want.length) return true;
+  if (!W.concepts.length || !W.chapters.length) return true;
+  const chs = W.chapters.filter(ch => q.chapter_id === ch || (q.also || []).includes(ch));
+  if (!chs.length) return true;
+  const want = []; for (const ch of chs) { const p = pickedIn(ch); if (!p.length) return true; want.push(...p); }
   return hasConc(q, want);
 }
-function concPanel(t, g, list) {
-  const chs = list.filter(c => W.chapters.includes(c.id)).map(c => c.id);
-  if (!chs.length) { delete PANELS[g]; return ''; }
-  const base = META.filter(q => q.track === t && W.srcs.includes(srcOf(q)) && inChaps(q, chs));
-  const cnt = {}; base.forEach(q => (q.concepts || []).forEach(c => { cnt[c] = (cnt[c] || 0) + 1; }));
+function chapConcepts(t, ch) {
+  const base = META.filter(q => q.track === t && W.srcs.includes(srcOf(q)) && inChaps(q, [ch]));
+  const cnt = {}; base.forEach(q => (q.concepts || []).forEach(c => { if (CONC[c]) cnt[c] = (cnt[c] || 0) + 1; }));
   const tc = {}; base.forEach(q => { const c = (q.concepts || [])[0]; if (c && CONC[c]) tc[CONC[c].topic] = (tc[CONC[c].topic] || 0) + 1; });
-  const own = new Set(Object.keys(tc).filter(x => tc[x] >= Math.max(3, 0.15 * base.length)));
-  const ids = Object.keys(cnt).filter(c => CONC[c]).sort((a, b) => own.has(CONC[b].topic) - own.has(CONC[a].topic) || (own.has(CONC[a].topic) ? CONC[a].topic.localeCompare(CONC[b].topic) || CONC[a].ord - CONC[b].ord : cnt[b] - cnt[a]));
-  PANELS[g] = new Set(ids);
-  if (!ids.length) return '';
-  const all = W.ccAll && W.ccAll[g], mine = ids.filter(c => W.concepts.includes(c));
-  const show = ids.filter(c => all || own.has(CONC[c].topic) || cnt[c] >= 3 || W.concepts.includes(c)), hid = ids.length - show.length;
-  const names = list.filter(c => chs.includes(c.id)).map(c => c.name), title = esc(names.length > 2 ? names.length + ' chapters' : names.join(' & '));
-  if (W.ccDone && W.ccDone[g]) return `<div class="cpanel done"><div class="cphead"><span><i class=ix-check></i>Concepts in ${title}: <b>${mine.length ? mine.length + ' picked' : 'all'}</b>${mine.length ? ` <span class="pill2">${esc(mine.slice(0, 3).map(c => CONC[c].name).join(', '))}${mine.length > 3 ? '…' : ''}</span>` : ''}</span><button class="mini" data-ccedit="${esc(g)}">Edit</button></div></div>`;
-  return `<div class="cpanel"><div class="cphead"><span>Concepts in ${esc(names.length > 2 ? names.length + ' chapters' : names.join(' & '))} <span class="pill2">optional · none = every concept</span></span>${mine.length ? `<button class="mini" data-ccclear="${esc(g)}">Clear ${mine.length}</button>` : ''}</div>
-      <div class="chips">${show.map(c => `<button class="chip ${W.concepts.includes(c) ? 'on' : ''}" data-cc="${esc(c)}">${esc(CONC[c].name)} <span class="pill2">${cnt[c]}</span></button>`).join('')}${hid && !all ? `<button class="chip" data-ccmore="${esc(g)}" style="border-style:dashed">+ ${hid} more from other chapters</button>` : ''}</div>
-      <div class="cpfoot"><span class="pill2">${mine.length ? `${mine.length} picked · saved as you tap` : 'Nothing picked: every concept is included'}</span><button class="btn ghost cpdone" data-ccdone="${esc(g)}"><i class=ix-check></i>Done</button></div></div>`;
+  const top = Object.keys(tc).sort((a, b) => tc[b] - tc[a])[0], own = new Set(Object.keys(tc).filter(x => x === top || tc[x] >= Math.max(5, 0.25 * base.length)));
+  const ids = Object.keys(cnt);
+  const mine = ids.filter(c => own.has(CONC[c].topic)).sort((a, b) => CONC[a].topic.localeCompare(CONC[b].topic) || CONC[a].ord - CONC[b].ord);
+  const other = ids.filter(c => !own.has(CONC[c].topic)).sort((a, b) => cnt[b] - cnt[a]);
+  return { cnt, mine, other };
+}
+function concPanel(t, g, list) {
+  const chs = list.filter(c => W.chapters.includes(c.id));
+  if (!chs.length) return '';
+  if (W.ccDone && W.ccDone[g]) return `<div class="cpanel done"><div class="cphead"><span><i class=ix-check></i>Concepts · ${chs.map(c => `${esc(c.name)}: <b>${pickedIn(c.id).length ? pickedIn(c.id).length + ' picked' : 'all'}</b>`).join(' · ')}</span><button class="mini" data-ccedit="${esc(g)}">Edit</button></div></div>`;
+  const secs = chs.map(c => {
+    const { cnt, mine, other } = chapConcepts(t, c.id), p = pickedIn(c.id), open = W.ccAll && W.ccAll[c.id];
+    if (!mine.length && !other.length) return '';
+    const extra = other.filter(x => open || p.includes(x)), hid = other.length - extra.length;
+    const chip = x => `<button class="chip ${p.includes(x) ? 'on' : ''}" data-cc="${c.id}:${esc(x)}">${esc(CONC[x].name)} <span class="pill2">${cnt[x]}</span></button>`;
+    return `<div class="csec"><div class="cphead"><span>${esc(c.name)} <span class="pill2">${p.length ? p.length + ' picked' : 'every concept'}</span></span>${p.length ? `<button class="mini" data-ccclear="${c.id}">Clear</button>` : ''}</div>
+      <div class="chips">${mine.map(chip).join('')}${extra.length ? `<span class="cpsep">from other chapters</span>${extra.map(chip).join('')}` : ''}${hid ? `<button class="chip" data-ccmore="${c.id}" style="border-style:dashed">+ ${hid} from other chapters</button>` : ''}</div></div>`;
+  }).join('');
+  const n = chs.reduce((a, c) => a + pickedIn(c.id).length, 0);
+  return `<div class="cpanel"><div class="cptitle">Concepts <span class="pill2">optional · tap to narrow a chapter; nothing picked = every concept</span></div>${secs}
+      <div class="cpfoot"><span class="pill2">${n ? `${n} picked · saved as you tap` : 'Nothing picked: every concept is included'}</span><button class="btn ghost cpdone" data-ccdone="${esc(g)}"><i class=ix-check></i>Done</button></div></div>`;
 }
 
 function form() {
@@ -431,7 +440,7 @@ function form() {
     <div class="box" style="margin-top:14px"><h3>Or build it yourself</h3><p class="small">Start with an empty sheet and add your own questions, newly typed questions or handwritten board pages, in the same print design.</p>
       <div class="actions" style="margin-top:8px"><button class="btn ghost" id="blank">✎ Start a blank worksheet</button><a class="btn ghost" href="/worksheet/templates/mathemission-worksheet.tex" download><i class=ix-download></i>LaTeX template</a></div></div>`;
 
-  { const shown = new Set(Object.values(PANELS).flatMap(x => [...x])); W.concepts = W.concepts.filter(c => shown.has(c)); }
+  W.concepts = W.concepts.filter(x => /^\d+:/.test(x) && W.chapters.includes(+x.split(':')[0]));
   const $ = s => app.querySelector(s);
   app.querySelectorAll('#trk button').forEach(b => b.onclick = () => { if (b.dataset.v !== W.track) { setTrack(b.dataset.v); form(); } });
   app.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
@@ -451,7 +460,7 @@ function form() {
   });
   if ($('#chClear')) $('#chClear').onclick = () => { W.chapters = []; W.concepts = []; form(); };
   app.querySelectorAll('[data-cc]').forEach(b => b.onclick = () => { const c = b.dataset.cc; W.concepts = W.concepts.includes(c) ? W.concepts.filter(x => x !== c) : [...W.concepts, c]; form(); });
-  app.querySelectorAll('[data-ccclear]').forEach(b => b.onclick = () => { const pan = PANELS[b.dataset.ccclear] || new Set(); W.concepts = W.concepts.filter(c => !pan.has(c)); form(); });
+  app.querySelectorAll('[data-ccclear]').forEach(b => b.onclick = () => { W.concepts = W.concepts.filter(x => !x.startsWith(b.dataset.ccclear + ':')); form(); });
   app.querySelectorAll('[data-ccdone]').forEach(b => b.onclick = () => { W.ccDone = { ...(W.ccDone || {}), [b.dataset.ccdone]: true }; form(); const el = [...app.querySelectorAll('[data-ccedit]')].find(x => x.dataset.ccedit === b.dataset.ccdone); if (el) el.closest('.cpanel').scrollIntoView({ block: 'center' }); });
   app.querySelectorAll('[data-ccedit]').forEach(b => b.onclick = () => { W.ccDone = { ...(W.ccDone || {}), [b.dataset.ccedit]: false }; form(); });
   app.querySelectorAll('[data-ccmore]').forEach(b => b.onclick = () => { W.ccAll = { ...(W.ccAll || {}), [b.dataset.ccmore]: true }; form(); });
