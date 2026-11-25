@@ -78,6 +78,8 @@
 #sheet .pq .b{flex:1;min-width:0}
 #sheet .pq .qsrc{font:600 7.2pt Inter,sans-serif;color:#7a86a6;letter-spacing:.04em;margin:-.4mm 0 1mm}
 #sheet .stem p{margin:0 0 1.5mm}
+#sheet .psg{break-inside:avoid;break-after:avoid;margin:1mm 0 3.2mm;padding:2.6mm 3.4mm;border:1px solid var(--rule);border-left:2.4px solid var(--blue);border-radius:2mm;background:#f7f9ff}
+#sheet .psgh{font:700 8.6pt Inter,sans-serif;color:var(--navy);letter-spacing:.02em;margin-bottom:1.2mm}
 #sheet .opts{display:grid;gap:1.2mm 6mm;margin:2mm 0 0;padding:0;list-style:none}
 #sheet .opts.c4{grid-template-columns:repeat(4,1fr)}#sheet .opts.c2{grid-template-columns:repeat(2,1fr)}#sheet .opts.c1{grid-template-columns:1fr}
 #sheet .opts li{min-width:0;padding-left:7.2mm;text-indent:-7.2mm}
@@ -163,7 +165,7 @@ const SRC = {
    Other banks show what they are; the live count per type is in "How many of each type". */
 function srcNote(s, n) {
   if (s === 'my') return `${SRC.my.note} · ${n.toLocaleString()} question${n === 1 ? '' : 's'}`;
-  if (SRC[s].years) return `${SRC[s].note} · ${n.toLocaleString()} questions${s === 'adv' ? ' (paragraph sets not included)' : ''}`;
+  if (SRC[s].years) return `${SRC[s].note} · ${n.toLocaleString()} questions`;
   return SRC[s].note;
 }
 const ADV_SRCS = ['adv', 'ra', 'mf', 'sc', 'fj', 'nn', 'al', 'cp', 'my'];
@@ -181,7 +183,7 @@ function srcOf(q) {
 }
 const BUCKETS = {
   main: [['sc', 'MCQ', 4, -1], ['num', 'Numerical', 4, -1], ['subj', 'Subjective', 0, 0], ['page', 'Handwritten pages', 0, 0]],
-  adv: [['sc', 'Single correct', 3, -1], ['mc', 'Multiple correct', 4, -2], ['num', 'Numerical', 4, 0], ['match', 'Matching', 3, -1], ['subj', 'Subjective', 0, 0], ['page', 'Handwritten pages', 0, 0]]
+  adv: [['sc', 'Single correct', 3, -1], ['mc', 'Multiple correct', 4, -2], ['num', 'Numerical', 4, 0], ['match', 'Matching', 3, -1], ['para', 'Paragraph sets', 3, -1], ['subj', 'Subjective', 0, 0], ['page', 'Handwritten pages', 0, 0]]
 };
 const FORM_BUCKETS = t => BUCKETS[t].filter(([b]) => b !== 'page');
 const DIFF = { any: null, easy: [.5, .4, .1], balanced: [.3, .5, .2], hard: [.1, .4, .5] };
@@ -198,8 +200,17 @@ const W = {
   sets: 1, key: true, sols: false, cols: false, showSrc: false, answerBoxes: true, minutes: 0, items: []
 };
 const track = () => W.track;
-const bucketOf = q => { if (q.page) return 'page'; const k = K.kind(q); if (k === 'subj') return 'subj'; if (q.track === 'main') return k === 'sc' ? 'sc' : 'num'; if (q.qtype === 'MATCH' || k === 'grid') return 'match'; return k; };
+const bucketOf = q => { if (q.page) return 'page'; if (q.passage_id) return 'para'; const k = K.kind(q); if (k === 'subj') return 'subj'; if (q.track === 'main') return k === 'sc' ? 'sc' : 'num'; if (q.qtype === 'MATCH' || k === 'grid') return 'match'; return k; };
 const diffIx = q => Math.max(0, DNAME.indexOf(q.difficulty || 'Moderate'));
+/* Paragraph sets (25 Nov): the questions of one paragraph always travel together, in their paper order. */
+const qNo = q => { const m = /Q\s*(\d+)\s*$/.exec(q.source_ref || '') || /-Q(\d+)$/.exec(q.src || ''); return m ? +m[1] : 0; };
+function paraGroups(list) {
+  const g = new Map(); list.forEach(q => { if (q.passage_id) { if (!g.has(q.passage_id)) g.set(q.passage_id, []); g.get(q.passage_id).push(q); } });
+  g.forEach(qs => qs.sort((a, b) => qNo(a) - qNo(b) || (a.id < b.id ? -1 : 1)));
+  return g;
+}
+const PSG = {};   // passage id -> paragraph html
+const groupOf = (ids, id) => { const q = qOf(id); return q && q.passage_id ? ids.filter(x => qOf(x) && qOf(x).passage_id === q.passage_id) : [id]; };
 const chName = id => (CH.find(c => c.id === id) || {}).name || '';
 /* "Also covers": a question counts for a chapter if it is its main chapter or one it also covers (My Questions). */
 const inChaps = (q, list) => list.includes(q.chapter_id) || (q.also || []).some(a => list.includes(a));
@@ -221,11 +232,11 @@ function bankDb() { return new Promise((res, rej) => { const r = indexedDB.open(
 async function idbGet(k) { try { const db = await bankDb(); return await new Promise(res => { const t = db.transaction('kv').objectStore('kv').get(k); t.onsuccess = () => res(t.result); t.onerror = () => res(null); }); } catch (e) { return null; } }
 async function idbSet(k, v) { try { const db = await bankDb(); db.transaction('kv', 'readwrite').objectStore('kv').put(v, k); } catch (e) {} }
 async function fetchBank(onPage) {
-  const rows = await K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty,concepts', q => q.eq('status', 'published').order('id'), onPage);
+  const rows = await K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty,source_ref,concepts', q => q.eq('status', 'published').order('id'), onPage);
   return K.pro() ? rows.concat(await K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty,source_ref,concepts', q => q.eq('status', 'teach').order('id'))) : rows;
 }
 async function loadBank() {
-  const key = 'bank_v1_' + (K.pro() ? 'pro' : 'free');
+  const key = 'bank_v2_' + (K.pro() ? 'pro' : 'free');
   const c = await idbGet(key);
   if (c && c.rows && Date.now() - c.at < 7 * 864e5) { fetchBank().then(rows => idbSet(key, { at: Date.now(), rows })).catch(() => {}); return c.rows; }
   const rows = await fetchBank(n => { const l = document.getElementById('ld'); if (l) l.textContent = `Loading the question bank… ${n}`; });
@@ -247,7 +258,7 @@ async function loadBank() {
       K.sb.from('concept_list').select('id,topic,name,ord').then(r => { (r.data || []).forEach(c => { CONC[c.id] = c; }); })
     ]);
   } catch (e) { app.innerHTML = INTRO + `<div class="lock"><h3>Couldn’t load the question bank</h3><p>${esc(e.message)}</p></div>`; return; }
-  META = META.filter(q => !q.passage_id && q.answer_key);   // paragraph sets stay out of worksheets for now
+  META = META.filter(q => q.answer_key);   // paragraph questions come as whole sets (bucket 'para')
   Object.values(MYQ).filter(r => r && !r.deleted && r.stem).forEach(r => { const q = K.myToQ(r); META.push(q); FULL[q.id] = q; });
   W.inst = PREFS.inst || ''; W.teacher = PREFS.teacher || ''; W.batch = PREFS.batch || '';
   const h = new URLSearchParams(location.hash.slice(1));
@@ -295,15 +306,13 @@ async function fromSet(id) {
   if (!set || set.deleted || !(set.ids || []).length) { toast('That question set is empty or was not found.'); return false; }
   let ids = set.ids.slice();
   try { await ensureFull(ids); } catch (e) { toast('Couldn’t load the set: ' + e.message); return false; }
-  const para = ids.filter(x => FULL[x] && FULL[x].passage_id).length;
-  ids = ids.filter(x => FULL[x] && !FULL[x].passage_id);
-  if (!ids.length) { toast('This set has only paragraph questions, which worksheets don’t take yet.'); return false; }
+  ids = ids.filter(x => FULL[x]);
+  if (!ids.length) { toast('That question set is empty or was not found.'); return false; }
   const nMain = ids.filter(x => FULL[x].track === 'main').length;
   W.track = nMain > ids.length / 2 ? 'main' : 'adv';
   W.srcs = [...new Set(ids.map(x => srcOf(FULL[x])))];
   const max = K.pro() ? PRO_MAX : FREE_MAX;
   if (ids.length > max) { toast(`Using the first ${max} questions of the set (${K.pro() ? 'the most per sheet' : 'Free plan limit'}).`); ids = ids.slice(0, max); }
-  else if (para) toast(`${para} paragraph question${para > 1 ? 's' : ''} left out (not supported in worksheets yet).`);
   W.items = ids; W.title = set.name; W.id = null; W.minutes = 0;
   history.replaceState(null, '', location.pathname);
   sheet();
@@ -354,7 +363,7 @@ function concBox(t) {
 
 function form() {
   const t = track(), p = pool(), used = usedIds();
-  const avail = Object.fromEntries(FORM_BUCKETS(t).map(([b]) => [b, p.filter(q => bucketOf(q) === b && !(W.avoid && used.has(q.id))).length]));
+  const avail = Object.fromEntries(FORM_BUCKETS(t).map(([b]) => [b, b === 'para' ? [...paraGroups(p.filter(q => bucketOf(q) === 'para')).values()].filter(qs => !(W.avoid && qs.some(q => used.has(q.id)))).length : p.filter(q => bucketOf(q) === b && !(W.avoid && used.has(q.id))).length]));
   const groups = [];
   CH.filter(c => c.track === t).sort((a, b) => (a.grp_order || 0) - (b.grp_order || 0) || a.syllabus_order - b.syllabus_order)
     .forEach(c => { let g = groups.find(g => g[0] === c.grp); if (!g) groups.push(g = [c.grp, []]); g[1].push(c); });
@@ -464,6 +473,13 @@ function build() {
   const items = [], short = [];
   for (const [b, name] of FORM_BUCKETS(track())) {
     const n = +W.counts[track()][b] || 0; if (!n) continue;
+    if (b === 'para') {
+      const all = paraGroups(META.filter(q => q.track === track() && q.passage_id)), want = new Set(p.filter(q => q.passage_id).map(q => q.passage_id));
+      const sets = K.shuffle([...all.entries()].filter(([pid, qs]) => want.has(pid) && !qs.some(q => taken.has(q.id)))).slice(0, n);
+      if (sets.length < n) short.push(`${name}: ${sets.length} of ${n}`);
+      sets.forEach(([, qs]) => qs.forEach(q => { taken.add(q.id); items.push(q.id); }));
+      continue;
+    }
     const got = arrange(pick(p.filter(q => bucketOf(q) === b), n, taken));
     if (got.length < n) short.push(`${name}: ${got.length} of ${n}`);
     items.push(...got.map(q => q.id));
@@ -487,13 +503,15 @@ async function ensureFull(ids) {
   if (!need.length) return;
   const rows = await K.fetchIn('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,stem_html,options,answer_key,difficulty,source_ref', 'id', need);
   rows.forEach(r => FULL[r.id] = r);
+  const pids = [...new Set(ids.map(id => FULL[id] && FULL[id].passage_id).filter(pid => pid && !PSG[pid]))];
+  if (pids.length) (await K.fetchIn('passages', 'id,stem_html', 'id', pids)).forEach(r => { PSG[r.id] = r.stem_html; });
 }
 const qOf = id => FULL[id] || META.find(q => q.id === id);
 function sections(ids) {
   return BUCKETS[track()].map(([b, name, plus, minus]) => ({ b, name, plus, minus, ids: ids.filter(id => bucketOf(qOf(id)) === b) })).filter(s => s.ids.length);
 }
 function maxMarks(ids) {
-  return sections(ids).reduce((m, s) => m + s.ids.reduce((a, id) => { const q = qOf(id); return a + (q.page ? 0 : K.kind(q) === 'subj' ? (+q.marks || 0) : K.kind(q) === 'grid' ? 2 * (q.options.rows || []).length : s.plus); }, 0), 0);
+  return sections(ids).reduce((m, s) => m + s.ids.reduce((a, id) => { const q = qOf(id); return a + (q.page ? 0 : K.kind(q) === 'subj' ? (+q.marks || 0) : K.kind(q) === 'grid' ? 2 * (q.options.rows || []).length : s.b === 'para' ? ({ mc: 4, num: 4 }[K.kind(q)] || 3) : s.plus); }, 0), 0);
 }
 const isQ = id => !/^INK-/.test(id);
 function autoMinutes() { const n = W.items.filter(isQ).length; return Math.max(10, Math.ceil(n * (track() === 'main' ? 2.4 : 3) / 5) * 5); }
@@ -534,11 +552,11 @@ async function sheet() {
     <div class="actions"><button class="btn" id="pvbtn">Preview &amp; print</button><button class="btn ghost" id="save">${W.id ? 'Save changes' : 'Save this sheet'}</button>
       <button class="btn ghost" id="again">Choose again</button><button class="btn ghost" id="edit2">Change settings</button></div>
     ${secs.map(s => `<div class="sec-h"><h3>${s.name}</h3><span>${s.ids.length} question${s.ids.length > 1 ? 's' : ''}${W.marking ? ` · +${s.plus}${s.minus ? ' / ' + s.minus : ''}${s.b === 'mc' ? ' (partial marks)' : ''}` : ''}</span></div>
-      ${s.ids.map(id => { const q = qOf(id); if (q.page) return `<article class="q" data-id="${esc(id)}"><header><span><span class="qn"><i class=ix-penline></i></span>${esc(q.title)}</span><span>Handwritten</span></header><div style="background:#fff;border-radius:8px;padding:6px">${q.svg || '<p class="dim">This board has no ink on this device.</p>'}</div>
+      ${s.ids.map((id, ix) => { const q = qOf(id); if (q.passage_id) q._pass = (ix === 0 || !qOf(s.ids[ix - 1]) || qOf(s.ids[ix - 1]).passage_id !== q.passage_id) ? (PSG[q.passage_id] || '') : ''; if (q.page) return `<article class="q" data-id="${esc(id)}"><header><span><span class="qn"><i class=ix-penline></i></span>${esc(q.title)}</span><span>Handwritten</span></header><div style="background:#fff;border-radius:8px;padding:6px">${q.svg || '<p class="dim">This board has no ink on this device.</p>'}</div>
         <div class="qtools" style="margin-top:8px"><button data-a="up">↑</button><button data-a="down">↓</button><button data-a="del">Remove</button></div></article>`; n++; return `<article class="q" data-id="${esc(id)}"><header><span><span class="qn">Q${n}</span>${esc(K.srcText(q))}${q.chapter_id ? ' · ' + esc(chName(q.chapter_id)) : ''}${alsoTag(q)}</span><span>${esc(q.difficulty || '')}${K.kind(q) === 'subj' && q.marks ? ' · ' + q.marks + ' marks' : ''}</span></header>
         ${K.body(q)}
         <details class="ha"><summary>Answer</summary><div class="ans"><span>Key</span>${esc(K.keyText(q))}</div></details>
-        <div class="qtools" style="margin-top:8px"><button data-a="up">↑</button><button data-a="down">↓</button><button data-a="swap">Swap for another</button><button data-a="del">Remove</button></div></article>`; }).join('')}`).join('')}
+        <div class="qtools" style="margin-top:8px"><button data-a="up">↑</button><button data-a="down">↓</button>${q.passage_id ? (q._pass ? '<button data-a="swap">Swap the set</button><button data-a="del">Remove the set</button>' : '') : '<button data-a="swap">Swap for another</button><button data-a="del">Remove</button>'}</div></article>`; }).join('')}`).join('')}
     ${W.items.length ? '' : '<div class="box"><h3>Your blank worksheet</h3><p class="small">Add questions with the buttons below. They print in the Mathemission design, with sections, marks and an answer key.</p></div>'}
     <div class="box"><h3>Add to this sheet</h3><div class="actions" style="margin-top:6px">
       <button class="btn ghost" id="addMy"><i class=ix-plus></i>From My Questions</button><button class="btn ghost" id="addNew">✎ Write a new question</button>
@@ -637,6 +655,7 @@ function shrinkLogo(file) {
 }
 
 async function act(id, a) {
+  if (qOf(id) && qOf(id).passage_id) return actSet(id, a);
   const i = W.items.indexOf(id), q = qOf(id);
   const same = W.items.map((x, j) => j).filter(j => bucketOf(qOf(W.items[j])) === bucketOf(q));
   if (a === 'del') W.items.splice(i, 1);
@@ -658,10 +677,32 @@ async function act(id, a) {
   await sheet();
   if (a !== 'del') { const el = app.querySelector(`.q[data-id="${CSS.escape(W.items[a === 'swap' ? i : W.items.indexOf(id)])}"]`); if (el) el.scrollIntoView({ block: 'center' }); }
 }
+/* paragraph sets move, swap and go out as a whole */
+async function actSet(id, a) {
+  const grp = groupOf(W.items, id), first = W.items.indexOf(grp[0]);
+  const rest = W.items.filter(x => !grp.includes(x));
+  if (a === 'del') W.items = rest;
+  if (a === 'up' || a === 'down') {
+    const pids = [...new Set(W.items.map(x => qOf(x) && qOf(x).passage_id).filter(Boolean))], pid = qOf(id).passage_id, k = pids.indexOf(pid), other = pids[a === 'up' ? k - 1 : k + 1];
+    if (!other) return;
+    const og = W.items.filter(x => qOf(x) && qOf(x).passage_id === other), at = W.items.indexOf((a === 'up' ? og : grp)[0]);
+    const blockA = a === 'up' ? grp : og, blockB = a === 'up' ? og : grp;
+    W.items = W.items.filter(x => !grp.includes(x) && !og.includes(x)); W.items.splice(at, 0, ...blockA, ...blockB);
+  }
+  if (a === 'swap') {
+    const taken = new Set([...W.items, ...(W.avoid ? usedIds() : [])]), want = new Set(pool().filter(q => q.passage_id).map(q => q.passage_id));
+    const c = [...paraGroups(META.filter(q => q.track === track() && q.passage_id)).entries()].filter(([pid, qs]) => want.has(pid) && pid !== qOf(id).passage_id && !qs.some(q => taken.has(q.id)));
+    if (!c.length) return toast('No other paragraph set matches your settings.');
+    const pick1 = c[Math.floor(Math.random() * c.length)][1].map(q => q.id);
+    W.items = rest; W.items.splice(first, 0, ...pick1);
+  }
+  if (!W.items.length) return form();
+  await sheet();
+}
 async function more() {
   if (W.items.length >= (K.pro() ? PRO_MAX : FREE_MAX)) return toast(K.pro() ? `Up to ${PRO_MAX} questions per sheet.` : `Free plan: up to ${FREE_MAX} questions per sheet.`);
   const taken = new Set([...W.items, ...(W.avoid ? usedIds() : [])]);
-  let c = pool().filter(x => !taken.has(x.id));
+  let c = pool().filter(x => !taken.has(x.id) && !x.passage_id);
   /* nothing left in the ticked sources (e.g. a sheet of my own questions): take a PYQ of the same exam */
   if (!c.length) c = META.filter(x => x.track === W.track && srcOf(x) === (W.track === 'main' ? 'main' : 'adv') && !taken.has(x.id) && (!W.chapters.length || inChaps(x, W.chapters)));
   if (!c.length) return toast('No more questions match your settings.');
@@ -729,7 +770,7 @@ function savePrefs() { PREFS = { inst: W.inst, teacher: W.teacher, batch: W.batc
 function setOrder(k) {
   if (k === 0) return W.items.slice();
   const r = K.rng((W.id || W.title) + '|set' + k);
-  return sections(W.items).flatMap(s => K.shuffle(s.ids, r));
+  return sections(W.items).flatMap(s => s.b === 'para' ? K.shuffle([...new Set(s.ids.map(id => qOf(id).passage_id))], r).flatMap(pid => s.ids.filter(id => qOf(id).passage_id === pid)) : K.shuffle(s.ids, r));
 }
 function insLine(s) {
   if (s.b === 'page') return '';
@@ -738,12 +779,14 @@ function insLine(s) {
   if (s.b === 'sc') return `<li><b>Single correct:</b> only one option is correct. +3 if correct, −1 if wrong, 0 if left blank.</li>`;
   if (s.b === 'mc') return `<li><b>Multiple correct:</b> one or more options are correct. +4 if all correct options and no wrong option are chosen; +1 for each correct option chosen when no wrong option is chosen; −2 if any wrong option is chosen.</li>`;
   if (s.b === 'num') return `<li><b>Numerical:</b> the answer is a number. +4 if correct, 0 otherwise.</li>`;
+  if (s.b === 'para') return `<li><b>Paragraph sets:</b> read each paragraph, then answer the questions after it. Each question is marked by its type: single correct +3 / −1, numerical +4 / 0, multiple correct as above.</li>`;
   return `<li><b>Matching:</b> +3 if correct, −1 if wrong${s.ids.some(id => K.kind(qOf(id)) === 'grid') ? '; tick-grid questions: +2 for each fully correct row' : ''}.</li>`;
 }
 function markTxt(s) {
   if (!W.marking || s.b === 'page') return '';
   if (s.b === 'subj') return 'marks as shown';
   if (s.b === 'mc') return `+${s.plus} / ${s.minus} · partial marks`;
+  if (s.b === 'para') return 'marks by question type';
   return `+${s.plus}${s.minus ? ' / ' + s.minus : ' / 0'} each`;
 }
 function dateTxt() { try { return W.date ? new Date(W.date + 'T00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; } catch (e) { return ''; } }
@@ -766,6 +809,14 @@ function masthead(sub, setLabel) {
     <div class="who"><div class="inst">${esc(W.inst || (m === 'mm' ? 'Mathemission' : W.teacher || ''))}</div><div class="sub">${esc(sub)}</div></div>
     ${setLabel ? `<div class="setb">SET<b>${setLabel}</b></div>` : ''}</div>`;
 }
+/* "Paragraph for Questions 7 and 8" + the paragraph, printed once before its first question */
+function psgHead(ids, ix, n) {
+  const q = qOf(ids[ix]); if (!q || !q.passage_id) return '';
+  if (ix > 0 && qOf(ids[ix - 1]) && qOf(ids[ix - 1]).passage_id === q.passage_id) return '';
+  let k = ix; while (k + 1 < ids.length && qOf(ids[k + 1]) && qOf(ids[k + 1]).passage_id === q.passage_id) k++;
+  const m = n + (k - ix), lab = m === n ? `Question ${n}` : m === n + 1 ? `Questions ${n} and ${m}` : `Questions ${n} to ${m}`;
+  return `<div class="psg"><div class="psgh">Paragraph for ${lab}</div><div class="stem">${PSG[q.passage_id] || ''}</div></div>`;
+}
 function setHtml(k) {
   const order = setOrder(k), setLabel = W.sets > 1 ? 'ABC'[k] : '';
   let n = 0;
@@ -777,7 +828,7 @@ function setHtml(k) {
     <div class="cand"><span>Name</span><span>Roll no.</span><span>${W.marking ? 'Marks' : 'Date'}</span></div>
     ${W.marking ? `<div class="ins"><h5>Instructions</h5><ul>${secs.map(insLine).join('')}</ul></div>` : ''}
     ${secs.map((s, si) => `<div class="secbar"><span class="tag">${s.b === 'page' ? 'Pages' : 'Section ' + (si + 1)}</span><span class="nm">${s.name}</span><span class="ln"></span><span class="mk">${s.b === 'page' ? '' : s.ids.length + ' Q'}${markTxt(s) ? ' · ' + markTxt(s) : ''}</span></div>
-      <div class="${W.cols && s.b !== 'page' ? 'cols' : ''}">${s.ids.map(id => { const q = qOf(id); if (q.page) return `<div class="inkpg">${q.svg}</div>`; n++; return `<div class="pq"><span class="n">${n}</span><div class="b">${W.showSrc && !q.my ? `<div class="qsrc">${esc(K.srcText(q))}</div>` : ''}${K.kind(q) === 'subj' && q.marks && W.marking ? `<span class="qmk">[${q.marks}]</span>` : ''}<div class="stem">${q.stem_html || ''}</div>${optsHtml(q)}${K.kind(q) === 'subj' && W.answerBoxes ? '<div class="work"></div>' : ''}</div></div>`; }).join('')}</div>`).join('')}
+      <div class="${W.cols && s.b !== 'page' ? 'cols' : ''}">${s.ids.map((id, ix) => { const q = qOf(id); if (q.page) return `<div class="inkpg">${q.svg}</div>`; n++; return `${psgHead(s.ids, ix, n)}<div class="pq"><span class="n">${n}</span><div class="b">${W.showSrc && !q.my ? `<div class="qsrc">${esc(K.srcText(q))}</div>` : ''}${K.kind(q) === 'subj' && q.marks && W.marking ? `<span class="qmk">[${q.marks}]</span>` : ''}<div class="stem">${q.stem_html || ''}</div>${optsHtml(q)}${K.kind(q) === 'subj' && W.answerBoxes ? '<div class="work"></div>' : ''}</div></div>`; }).join('')}</div>`).join('')}
     <div class="end">— END —</div>
   </section>`;
 }
