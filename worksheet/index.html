@@ -375,6 +375,7 @@ function chapConcepts(t, ch) {
   const cnt = {}; base.forEach(q => (q.concepts || []).forEach(c => { if (CONC[c]) cnt[c] = (cnt[c] || 0) + 1; }));
   const tc = {}; base.forEach(q => { const c = (q.concepts || [])[0]; if (c && CONC[c]) tc[CONC[c].topic] = (tc[CONC[c].topic] || 0) + 1; });
   const top = Object.keys(tc).sort((a, b) => tc[b] - tc[a])[0], own = new Set(Object.keys(tc).filter(x => x === top || tc[x] >= Math.max(5, 0.25 * base.length)));
+  if (own.has('FN')) own.add('SET');   // Sets, Relations & Functions: set and relation concepts are its own
   const ids = Object.keys(cnt);
   const mine = ids.filter(c => own.has(CONC[c].topic)).sort((a, b) => CONC[a].topic.localeCompare(CONC[b].topic) || CONC[a].ord - CONC[b].ord);
   const other = ids.filter(c => !own.has(CONC[c].topic)).sort((a, b) => cnt[b] - cnt[a]);
