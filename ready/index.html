@@ -217,7 +217,7 @@ function wireDevices(root) {
   });
 }
 
-const PDF_FREE = ['circles', 'quadratic'];
+const PDF_FREE = ['circles', 'quadratic', 'indefinite-integration'];
 const canPdf = slug => S.admin || S.plan === 'pro' || PDF_FREE.includes(slug);
 let pdfLibP = null;
 const pdfLib = () => pdfLibP || (pdfLibP = new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js'; sc.onload = () => ok(window.PDFLib); sc.onerror = () => { pdfLibP = null; no(new Error('Couldn’t load the PDF tool. Check your connection and try again.')); }; document.head.appendChild(sc); }));
@@ -250,7 +250,7 @@ function wirePdf(root) { root.querySelectorAll('[data-pdf]').forEach(b => b.oncl
 function readAll(ch) {
   const ls = S.lectures.filter(l => l.chapter_slug === ch.slug && !isPyq(l));
   const head = `<div class="crumbs"><a href="#/">MM Lecturing Notes</a> › <a href="#/${ch.slug}">${esc(ch.name)}</a> ›</div><h2><small>${esc(ch.name)}</small>Read the whole chapter</h2>`;
-  if (!ls.some(canRead)) { app.innerHTML = head + '<div class="lock"><h3>This chapter is in Teach Pro</h3><p>Circles and Quadratic Equations are free. Every other chapter of the book, and the full PDF, open with Teach Pro.</p><a class="btn" href="/?go=pro">Try it free for 14 days</a></div>'; return; }
+  if (!ls.some(canRead)) { app.innerHTML = head + '<div class="lock"><h3>This chapter is in Teach Pro</h3><p>Circles, Quadratic Equations and Indefinite Integration are free. Every other chapter of the book, and the full PDF, open with Teach Pro.</p><a class="btn" href="/?go=pro">Try it free for 14 days</a></div>'; return; }
   const list = [...new Set(ls.filter(canRead).flatMap(l => l.all_pages || []))].sort((a, b) => a - b);
   app.innerHTML = head + `<div class="meta dim">${list.length} pages, the chapter as it reads in the book. The E-sets with hints and answers are in each lecture.</div>
     ${canPdf(ch.slug) ? `<div class="actions"><button class="btn" data-pdf="${ch.slug}.pdf" data-title="${esc(ch.name)}">Download this chapter (PDF)</button><a class="btn ghost" href="#/${ch.slug}">Teach it lecture by lecture</a></div>` : ''}
@@ -288,7 +288,7 @@ function home() {
   const nPub = S.chapters.filter(c => c.status === 'published').length;
   app.innerHTML = `<h1><small>Mathemission Teach</small>MM Lecturing Notes</h1>
     <p class="lead">The complete JEE Advanced lecturing notes as one book, for your own preparation: theory pages, the E-set for each lecture with hints and the answer, and a PYQ lecture for each chapter. ${nPub} of ${all.length} chapters are ready; the book grows with every update.</p>
-    ${S.plan !== 'pro' && !S.admin ? '<div class="pace"><b>Free plan:</b> Circles and Quadratic Equations are open in full. Every other chapter, every new chapter as it is added, and the full PDF of the book come with <a href="/?go=pro">Teach Pro</a>.</div>' : '<div class="pace"><b>Teach Pro:</b> the whole book is open to you, including every new chapter as it is added and the full PDF of the book.</div>'}
+    ${S.plan !== 'pro' && !S.admin ? '<div class="pace"><b>Free plan:</b> Circles, Quadratic Equations and Indefinite Integration are open in full. Every other chapter, every new chapter as it is added, and the full PDF of the book come with <a href="/?go=pro">Teach Pro</a>.</div>' : '<div class="pace"><b>Teach Pro:</b> the whole book is open to you, including every new chapter as it is added and the full PDF of the book.</div>'}
     ${S.plan === 'pro' || S.admin ? '<div class="actions"><button class="btn" data-pdf="book.pdf" data-title="Full edition">Download the full book (PDF)</button><span class="dim small" style="align-self:center">Your copy carries your email on every page.</span></div>' : ''}
     ${deviceBox()}<div class="pace">${PACE}</div>
     <div class="grid two">${rows || '<p class="dim">No chapters published yet.</p>'}</div>
@@ -310,7 +310,7 @@ function chapter(ch) {
   const locked = !ls.some(canRead);
   app.innerHTML = `<div class="crumbs"><a href="#/">MM Lecturing Notes</a> ›</div>
     <h1><small>JEE Advanced</small>${esc(ch.name)}${cb}</h1>
-    ${locked ? '<div class="lock"><h3>This chapter is in Teach Pro</h3><p>Circles and Quadratic Equations are free. Every other chapter of the book, and the full PDF, open with Teach Pro.</p><a class="btn" href="/?go=pro">Try it free for 14 days</a></div>' : ''}
+    ${locked ? '<div class="lock"><h3>This chapter is in Teach Pro</h3><p>Circles, Quadratic Equations and Indefinite Integration are free. Every other chapter of the book, and the full PDF, open with Teach Pro.</p><a class="btn" href="/?go=pro">Try it free for 14 days</a></div>' : ''}
     ${locked ? '' : `<div class="actions"><a class="btn" href="#/${ch.slug}/read">Read the whole chapter</a>${canPdf(ch.slug) ? `<button class="btn ghost" data-pdf="${ch.slug}.pdf" data-title="${esc(ch.name)}">Download this chapter (PDF)</button>` : ''}</div>`}
     ${deviceBox()}<h3 style="margin:14px 0 6px">Teach it lecture by lecture</h3><div class="pace">${PACE}</div><div class="grid">${rows}</div>`;
   wireDevices(app); wirePdf(app); typeset(app);
@@ -408,7 +408,7 @@ async function lecture(ch, l) {
   }
   if (!canRead(l)) {
     app.innerHTML = head + `<div class="box"><h3>In this lecture</h3><ul class="small">${(l.topics || []).map(t => `<li>${mathy(t)}</li>`).join('')}</ul></div>
-      <div class="lock"><h3>Included in Teach Pro</h3><p>Circles and Quadratic Equations are free in full. Every other chapter of the book, with theory pages, E-sets, hints and answers, and the full PDF, open with Teach Pro.</p><a class="btn" href="/?go=pro">Try it free for 14 days</a> <a class="btn" href="/">Back to Teach</a></div>`;;
+      <div class="lock"><h3>Included in Teach Pro</h3><p>Circles, Quadratic Equations and Indefinite Integration are free in full. Every other chapter of the book, with theory pages, E-sets, hints and answers, and the full PDF, open with Teach Pro.</p><a class="btn" href="/?go=pro">Try it free for 14 days</a> <a class="btn" href="/">Back to Teach</a></div>`;;
     return typeset(app);
   }
   app.innerHTML = head + '<div class="spin">Loading lecture…</div>';
