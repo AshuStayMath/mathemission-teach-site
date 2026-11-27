@@ -249,7 +249,7 @@ async function fetchBank(onPage) {
   return K.pro() ? rows.concat(await K.fetchAll('questions', 'id,track,chapter_id,year,paper,qtype,passage_id,answer_key,difficulty,source_ref,concepts', q => q.eq('status', 'teach').order('id'))) : rows;
 }
 async function loadBank() {
-  const key = 'bank_v2_' + (K.pro() ? 'pro' : 'free');
+  const key = 'bank_v3_' + (K.pro() ? 'pro' : 'free');   // v3 (27 Nov): Teach Pro now reads all RA Plus, so fetch the list fresh once
   const c = await idbGet(key);
   if (c && c.rows && Date.now() - c.at < 7 * 864e5) { fetchBank().then(rows => idbSet(key, { at: Date.now(), rows })).catch(() => {}); return c.rows; }
   const rows = await fetchBank(n => { const l = document.getElementById('ld'); if (l) l.textContent = `Loading the question bank… ${n}`; });
